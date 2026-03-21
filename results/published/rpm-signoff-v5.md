@@ -33,7 +33,7 @@ No benchmark gaps remain open.
 | B8 | Multi-agent coordination | 5/5 exact; true agentId attribution via agent parameter override confirmed | CONFIRMED + IMPROVED — first valid cross-agentId test |
 | B9 | Relationships | iranti_related + iranti_related_deep functional; 4/4 edges; depth=2 traversal confirmed | FIXED — full two-sided benchmark |
 | B10 | Knowledge provenance | Confirmed; new finding: per-agentId records when multiple agent overrides write to same entity | CONFIRMED + NEW FINDING |
-| B11 | Context recovery | Auto-detection fixed; observe+hint 5/6; attend natural 4/6; forward slash in values causes silent drop | SUBSTANTIALLY IMPROVED — two defects characterized |
+| B11 | Context recovery | Auto-detection fixed; observe+hint 5/6; attend natural 4/6; slash-value defect retracted; user/main slot-pollution resolved | SUBSTANTIALLY IMPROVED — entity detection fixed; prior defect claims corrected |
 | B12 | Session recovery | Explicit query 8/8; observe+hint 5/8; baseline 0/8; handshake 0/8 | NEW — POSITIVE DIFFERENTIAL (explicit arm) |
 | B13 | Upgrade safety | 3/3 cross-version durability; API surface stable across v0.2.12→0.2.16 | NEW — PASS |
 
@@ -97,18 +97,11 @@ Three product-level defects remain open with no API workaround. One additional d
 - Workaround: none at API level; calibrate confidence to achieve gap ≥ 10
 - Scope: estimated 10–30% of cross-source writes (high uncertainty)
 
-### Defect 2: Forward Slash in Fact Values Causes Silent Retrieval Drop (HIGH)
-- Trigger: `/` character in any fact value (% alone does not trigger — prior finding revised)
-- Failure mode: silent exclusion from iranti_observe and iranti_attend scoring; value not flagged as wrong, it is absent
-- Affects: any deployment storing file paths, URLs, version strings, ratio values, SLA strings
-- Workaround: none at API level; avoid `/` in fact values where possible
-- Scope: ~15–30% of technical fact values in real deployments
+### Defect 2: Forward Slash in Fact Values Causes Silent Retrieval Drop (HIGH) — RETRACTED
+- RETRACTED — not reproduced. See B11 defect revalidation.
 
-### Defect 3: user/main/favorite_city Noise Entry in KB (MEDIUM)
-- Source: typescript_smoke
-- Failure mode: occupies one retrieval slot in iranti_attend natural path
-- Workaround: partial — entityHints suppresses it in iranti_observe; not suppressible in iranti_attend natural path without full entity specificity
-- Scope: medium — one slot consumed; does not corrupt other results
+### Defect 3: user/main/favorite_city Noise Entry in KB (MEDIUM) — RESOLVED
+- RESOLVED — slot-pollution behavior no longer observed. Entry persists in KB as local benchmark artifact; does not pollute retrieval results.
 
 ### Defect 4: iranti_observe Confidence Ranking Misses Progress/Transient Facts (MEDIUM)
 - Trigger: always active — observe ranks by stored confidence, not relevance
@@ -127,8 +120,8 @@ Three product-level defects remain open with no API workaround. One additional d
 | Attribute-value search | iranti_search | B4 v0.2.16: direct attribute queries functional; vectorScore 0.35–0.74 | Yes, with caveat | Semantic paraphrase queries fail. Named attribute queries work. Multi-hop via named attributes partially viable. |
 | Relationship graph writes | iranti_relate | B9 v0.2.16: 4/4 edges written | Yes | No relationshipType filter in API — client-side filtering required. |
 | Relationship graph reads + traversal | iranti_related, iranti_related_deep | B9 v0.2.16: 4/4 edges readable; depth=2 traversal on 4-node graph confirmed | Yes | No hop-depth labels on deep traversal output. Flat list returned. |
-| Context recovery with hints | iranti_observe | B11 v0.2.16: 5/6 observe+hint; auto-detection fixed; B12: 5/8 observe with hint | Yes, with caveat | Confidence-based ranking misses progress facts. Values with `/` silently excluded. |
-| Attend injection classifier | iranti_attend | B11 v0.2.16: entity detected; forceInject 5/6; natural 4/6 | Yes, with caveat | user/main noise consumes one slot in natural path. `/` in values causes silent exclusion. |
+| Context recovery with hints | iranti_observe | B11 v0.2.16: 5/6 observe+hint; auto-detection fixed; B12: 5/8 observe with hint | Yes, with caveat | Confidence-based ranking misses progress facts. Prior slash-exclusion claim retracted. |
+| Attend injection classifier | iranti_attend | B11 v0.2.16: entity detected; forceInject 5/6; natural 4/6 | Yes, with caveat | user/main slot-pollution resolved. Prior slash-exclusion claim retracted. |
 | Structured fact writes | iranti_write | B1–B13 across all versions | Yes | Transaction timeout affects cross-source writes in gap < 10 zone. |
 | Multi-agent attribution (single agent) | iranti_who_knows | B8 v0.2.16: 5/5 true agentId test with agent override | Yes | KB globally shared — no per-agentId read isolation. Attribution tracks write provenance only. |
 | Multi-agent attribution (shared entity) | iranti_who_knows | B10 v0.2.16: per-agentId records confirmed on multi-agent shared entity write | Yes, with caveat | n=1 scenario. Behavior under concurrent writes not tested. |
@@ -172,7 +165,7 @@ The following claims are supported by current evidence in this program. Each is 
 
 **6. iranti_observe recovers entity setup facts autonomously and with hints; explicit iranti_query recovers all stored facts.**
 - Evidence: B11: observe auto-detection fixed; B12: observe+hint 5/8; explicit query 8/8.
-- Bound: Progress/transient facts missed by observe (confidence ranking); values with `/` silently excluded; handshake is initialization-only.
+- Bound: Progress/transient facts missed by observe (confidence ranking); handshake is initialization-only. Prior claim that values with `/` are silently excluded is retracted.
 - Cannot claim: passive observe recovers full session state autonomously.
 
 **7. Iranti relationship graph is fully bidirectional (write and read) with depth traversal.**
@@ -202,13 +195,12 @@ The following should be communicated to the site PM (iranti-site) and control-pl
 **Limitations that must accompany public messaging:**
 - iranti_search: named attribute queries only — semantic paraphrase not supported
 - LLM arbitration path: do not claim as functional — transaction timeout defect blocks it under real provider
-- Values with `/`: silently excluded from observe/attend — affects paths, URLs, version strings
 - iranti_handshake: initialization only — not a session recovery mechanism
 - All scores: point estimates at small n — no confidence intervals computed; self-evaluation bias unresolved
 
 **Product defects to flag to engineering:**
 - Transaction timeout on LLM-arbitrated writes: systemic, no API workaround, high operational impact if cross-source writes are common
-- Forward slash parse failure: silent retrieval exclusion for a broad class of real-world values, no API workaround
+- Forward slash parse failure: RETRACTED — not reproduced in revalidation. No longer a flagged defect.
 
 ---
 
@@ -229,6 +221,20 @@ The following should be communicated to the site PM (iranti-site) and control-pl
 | B11 | Closed (broken) | Closed (partial) | Substantially improved | Defects characterized | Confirmed — final |
 | B12 | — | — | New — closed | Confirmed | Confirmed — final |
 | B13 | — | — | New — closed | Confirmed | Confirmed — final |
+
+---
+
+## Defect Status Correction — 2026-03-21
+
+Upstream evidence and revalidation testing corrected two of the three previously confirmed defects.
+
+| Defect | Prior status | Revised status |
+|--------|-------------|---------------|
+| Transaction timeout on LLM-arbitrated writes | Confirmed open | **Still open — unchanged** |
+| Forward slash in fact values causes retrieval loss | Confirmed HIGH | **RETRACTED — not reproduced** |
+| user/main noise entry pollutes retrieval | Confirmed MEDIUM | **RESOLVED — slot-pollution gone** |
+
+Revalidation evidence: results/raw/B11-defect-revalidation-v0216.md
 
 ---
 

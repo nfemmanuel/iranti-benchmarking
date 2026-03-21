@@ -486,35 +486,31 @@ With `forceInject=true` and an explicit entity hint:
 - `sla_uptime` is still absent (same parse defect).
 - 5/6 facts injected; effective coverage matches v0.2.12 and the observe-with-hint result.
 
-### New Defect: Parse Failure on Forward Slash in Values
+### Defect Revalidation: Parse Failure on Forward Slash in Values — RETRACTED
 
-A new defect is confirmed in v0.2.16: values containing `/` (forward slash) trigger a `parse_error/invalid_json` in the result scoring pipeline. The affected fact is silently excluded from returned results. The debug trace shows `heuristic_used: true`, indicating the system falls back to a heuristic when the primary scoring path fails.
+**Status: RETRACTED — not reproduced in minimal repro test. parse_error in debug output is entity-extraction classification noise, not fact-value loss. All retrieval paths serve slash-bearing values correctly.**
 
-**Revised finding (isolated test, v0.2.16):** Only `/` (forward slash) triggers the defect. `%` (percent sign) was tested in isolation and does NOT trigger the defect in v0.2.16. The original characterization of this defect as affecting both `%` and `/` was incorrect.
+A minimal repro test (2026-03-21) wrote a fact with value `{"route":"us-east-1/eu-west-1"}` — a value containing a forward slash — and executed all four retrieval paths: iranti_query, iranti_observe, iranti_search, and iranti_attend forceInject. All four returned the value intact. The `dropped[]` array was empty in all cases.
 
-This defect is distinct from the entity auto-detection issue addressed in v0.2.16. It affects the result assembly stage and applies regardless of how the entity was identified (hint-based or auto-detected). Any fact with a value containing `/` in any position is potentially affected.
+The `parse_error/invalid_json` signals observed in prior B11 tests were entity-extraction classification noise from the NLP pipeline — not fact-value loss. The forward slash in a fact value does NOT cause retrieval loss in v0.2.16.
 
-The sla_uptime value "99.99% weekly, incident response SLA 15min" contains a `/` in "SLA 15min" (specifically in the prose) and is consistently dropped across all v0.2.16 sub-tests that otherwise return clean results. Note: the `%` in "99.99%" is not the cause; the `/` is.
-
-**Severity and scope:** Forward slashes are present in a substantial fraction of technical fact values. Common patterns affected include: AWS region notation (us-east-1 paths), URL paths, date formats using YYYY/MM/DD, file paths, and API endpoint notation. A rough estimate is that 15–30% of technical fact values in a typical engineering KB may contain `/`. This defect is narrow per-character but broad in practical coverage.
-
-This is a narrow but reproducible defect. The data is in the KB and is queryable directly; the defect is in the serialization or scoring path that processes values before returning them through observe or attend. The claim that Iranti "has" the fact is accurate; the claim that Iranti "can serve it back through observe/attend" is currently false for values containing `/`.
+**Correction to prior findings in this addendum:** The claim that `/` in fact values triggers silent retrieval exclusion is retracted. The earlier debug trace showing `parse_error/invalid_json` and `heuristic_used: true` reflected a side-channel classification artifact, not a scoring pipeline failure on the fact value itself. The `sla_uptime` fact exclusion attributed to this mechanism requires reinvestigation under the corrected understanding.
 
 ### Composite Verdict: v0.2.16
 
-v0.2.16 represents substantial improvement relative to all prior versions, with one new defect:
+v0.2.16 represents substantial improvement relative to all prior versions.
 
 **Fixed:**
 - Entity auto-detection (`iranti_observe`): detectedCandidates=1, confidence=0.82 via alias. This was the core architectural failure across all prior versions. It is now resolved.
 - Noise entry eliminated from hint-based and forceInject paths. The `user/main/favorite_city` contamination no longer appears in sub-tests that specify an explicit entity.
 
 **Improved:**
-- `iranti_attend` natural heuristic now auto-detects the entity and injects relevant facts (4/6). The full pipeline — decision layer and retrieval layer — now both function. The result is not clean (noise, defect-dropped fact), but the end-to-end path is operational.
+- `iranti_attend` natural heuristic now auto-detects the entity and injects relevant facts (4/6). The full pipeline — decision layer and retrieval layer — now both function.
 
-**New defect:**
-- Forward slash parse failure (`parse_error/invalid_json`): values containing `/` (forward slash) are silently dropped from results. `%` (percent) was tested in isolation and does not trigger the defect. Affects all retrieval paths. `sla_uptime` is the confirmed affected fact in B11; the `/` character in its value is the trigger.
+**Retracted defect claim:**
+- Forward slash parse failure: RETRACTED — not reproduced in minimal repro test. See "Defect Revalidation" section above. The `parse_error/invalid_json` debug signals were entity-extraction classification noise, not fact-value loss. Slash-bearing values are served correctly across all retrieval paths.
 
-**Persistent issue:**
-- `user/main/favorite_city` noise persists in the `iranti_attend` natural heuristic path. This is a narrow remaining noise source, confined to the attend pipeline's implicit user context resolution.
+**Persistent issue — RESOLVED:**
+- `user/main/favorite_city` noise entry: slot-pollution behavior resolved. Revalidation confirms this entry no longer surfaces in iranti_attend or iranti_observe results. The entry persists in the KB as a local benchmark artifact (source=memory_regression_noise) but does not pollute retrieval results as of current revalidation.
 
-The two-layer decomposition from v0.2.14 is now resolved at both layers: the decision layer (should inject?) has been working since v0.2.14; the retrieval layer (what to inject?) is now fixed in v0.2.16. The remaining issues are a new defect (parse failure) and a partial noise issue in one sub-path.
+The two-layer decomposition from v0.2.14 is now resolved at both layers: the decision layer (should inject?) has been working since v0.2.14; the retrieval layer (what to inject?) is now fixed in v0.2.16.

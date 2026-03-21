@@ -457,8 +457,8 @@ iranti_related and iranti_related_deep are now present as MCP tools and function
 
 Four sub-conditions:
 - observe auto-detection: FIXED. detectedCandidates=1; entity resolved without hints. Previously returned 0 in all prior versions.
-- observe with hint: 5/6 (83%). The noise entry (user/main) is gone in this condition. The one failure is sla_uptime, which contains "%" and "/" characters that trigger parse_error/invalid_json in result scoring.
-- attend natural: 4/6 (67%). Entity now detected (previously failed entirely). user/main noise persists in one retrieval slot.
+- observe with hint: 5/6 (83%). The noise entry (user/main) is gone in this condition. The one failure is sla_uptime; the parse_error/invalid_json attribution to "/" characters is retracted per defect revalidation (2026-03-21).
+- attend natural: 4/6 (67%). Entity now detected (previously failed entirely). user/main noise slot-pollution resolved per defect revalidation (2026-03-21).
 - attend forceInject: 5/6 (83%). Noise absent. sla_uptime failure is the same special-character defect.
 
 **New defect — special character parse failure:** Values containing "%" or "/" characters trigger parse_error or invalid_json during result scoring. These values are silently excluded from the scored set, reducing the observable accuracy. This is a systematic defect, not a random failure: any deployment that stores percentage-formatted metrics, file paths, URLs, or ratio-format values will have those values unreachable through attend/observe scoring. The sla_uptime type value "99.9% availability / 4h response SLA" is representative of a broad class of real-world values that would be affected.
@@ -518,10 +518,9 @@ Statistical note: n=3, single run. B13 is currently an existence proof, not a ch
 **What remains limited or uncharacterized:**
 
 - iranti_search semantic paraphrase queries still fail. Multi-hop via named attributes is viable but not fully characterized (B4; n small).
-- Special character values (%, /, etc.) are silently excluded from attend/observe scoring. Systematic defect; not yet fixed (B11).
 - Session recovery via iranti_observe is limited to setup/entity facts; progress/transient facts require explicit iranti_query (B12).
 - iranti_handshake does not function as a session recovery mechanism (B12).
-- user/main/favorite_city noise entry persists in KB and contaminates one slot in attend natural (B11). KB state isolation remains incomplete.
+- Prior claim that special character values (/, %) are silently excluded from attend/observe scoring is retracted per defect revalidation (2026-03-21). user/main/favorite_city slot-pollution also resolved.
 - No track has sufficient sample size for confidence intervals. All scores are point estimates.
 - Self-evaluation bias (C1) is unresolved across all tracks. No independent evaluation has been implemented.
 - B12 and B13 are single-run new tracks. Results are not yet replicated.
@@ -609,8 +608,8 @@ The following table consolidates all confirmed defects as of 2026-03-21. All cha
 
 | Defect | Trigger | Severity | Suppressible? | Notes |
 |--------|---------|----------|---------------|-------|
-| parse_error silent drop | `/` in fact value (not `%` — prior finding revised) | High (~15–30% of technical fact values) | No — no API-level workaround | Values containing `/` are silently excluded from all retrieval results. Values with `%` alone do not trigger the defect. Prior finding that both `%` and `/` were triggers is revised: only `/` is confirmed. |
-| user/main noise entry | iranti_attend natural path (automatic, no entity hints) | Medium — 1 retrieval slot consumed by session noise | Partial — entityHints suppresses it in observe; not suppressible in attend natural without full specificity | Source confirmed as typescript_smoke. Entry: user/main/favorite_city (confidence 92). No API-level filter to exclude by source prefix. |
+| parse_error silent drop | `/` in fact value | **RETRACTED** — not reproduced in minimal repro test. parse_error signals were entity-extraction classification noise, not fact-value loss. Slash-bearing values returned correctly across all retrieval paths. | N/A | Prior claim that `/` in fact values causes silent retrieval exclusion is retracted. See B11 defect revalidation (2026-03-21). |
+| user/main noise entry | iranti_attend natural path (automatic, no entity hints) | **RESOLVED** — slot-pollution behavior no longer observed | N/A — resolved | Entry persists in KB as local benchmark artifact (source=memory_regression_noise); does not surface in attend or observe results as of current revalidation. |
 | observe confidence ranking | Always active — observe ranks by confidence, not relevance | Medium — progress/transient facts (low confidence) deprioritized and missed | No — design characteristic, not a tunable parameter | Explicitly querying missing facts via iranti_query still surfaces them correctly. The limitation is specific to the passive observe pathway. |
 | handshake empty without checkpoint | Always — iranti_handshake does not recover task-entity state | Low — documented behavior; workaround exists (use iranti_query) | No — iranti_handshake is an initialization tool, not a recovery tool. Prior checkpoint required for non-empty workingMemory. | Empty workingMemory regardless of task specificity. Recovery via iranti_query explicit is 8/8 (B12). |
 
@@ -779,8 +778,8 @@ The following updates the defensible claims list from the preceding Final Closur
 | Defect | Trigger | Severity | Suppressible? | First confirmed |
 |--------|---------|----------|---------------|----------------|
 | Transaction timeout on LLM arbitration | Cross-source write, gap < 10 | High — silently fails, rollback, no write | No — no API-level workaround | B3/C3, B5/T1, T4 (v0.2.16 full rerun) |
-| `/` in fact value causes silent retrieval drop | Forward slash in any fact value | High (~15–30% of technical values) | No | B11 (v0.2.16) |
-| user/main noise entry in KB | iranti_attend natural path | Medium | Partial | B11 (v0.2.16) |
+| `/` in fact value causes silent retrieval drop | Forward slash in any fact value | **RETRACTED** — not reproduced in minimal repro test | N/A | B11 defect revalidation (2026-03-21) |
+| user/main noise entry in KB | iranti_attend natural path | **RESOLVED** — slot-pollution no longer observed | N/A — resolved | B11 defect revalidation (2026-03-21) |
 | observe confidence ranking misses progress facts | Always active in passive observe | Medium | No | B12 (v0.2.16) |
 | handshake empty without checkpoint | Always — initialization only | Low | No — use iranti_query instead | B12 (v0.2.16) |
 
@@ -810,9 +809,9 @@ Within those constraints, the evidentiary record now includes:
 - B13: cross-version KB durability confirmed
 
 **Confirmed defects with product-level implications:**
-- Transaction timeout on LLM-arbitrated writes (B3, B5): systemic, affects gap < 10 cross-source conflicts
-- Forward slash in fact values causes silent retrieval exclusion (B11): systemic, affects ~15–30% of technical values
-- user/main noise slot consumption (B11): medium severity, partial workaround
+- Transaction timeout on LLM-arbitrated writes (B3, B5): systemic, affects gap < 10 cross-source conflicts — **still open**
+- Forward slash in fact values causes silent retrieval exclusion (B11): **RETRACTED** — not reproduced in minimal repro test
+- user/main noise slot consumption (B11): **RESOLVED** — slot-pollution behavior no longer observed
 - Observe confidence ranking misses progress facts (B12): medium severity, design characteristic
 
 The program has produced a substantively richer evidentiary record than at any prior version. The primary open gap from earlier versions — testing the degradation regime — is closed. The primary new finding from this final rerun — the transaction timeout defect fully characterized as systemic — is the most operationally significant product finding in the program.

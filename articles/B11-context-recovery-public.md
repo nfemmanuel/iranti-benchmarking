@@ -158,21 +158,15 @@ The system can now take the context text, figure out which project is being refe
 
 This also improves the `iranti_attend` path — the tool that decides whether to inject memory into an AI response automatically. Previously, even though the tool correctly decided *to* inject memory (that was fixed in v0.2.14), it couldn't find the *right* memory because entity detection was broken. Now, with detection working, attend is firing correctly and injecting relevant facts. It's not perfectly clean — more on that below — but the full pipeline now functions end to end.
 
-**One new quirk: forward slashes cause silent drops.**
+**Correction on the forward slash finding.**
 
-We found a new defect in v0.2.16. If a fact's value contains a forward slash (`/`), Iranti silently drops it from retrieval results when going through observe or attend. The data is there; Iranti just can't serve it back through those paths. The technical cause appears to be a parsing failure in the result scoring pipeline when it encounters that character.
+We previously reported that a fact's value containing a forward slash (`/`) would cause Iranti to silently drop it from retrieval results. We retested this. The defect does not reproduce. A minimal test with a slash-containing value (`{"route":"us-east-1/eu-west-1"}`) returned it correctly through all four retrieval paths. The parse error signal we observed was background noise from a different part of the pipeline — not actual data loss. We're correcting the record.
 
-**Correction from earlier reports:** We initially reported that both percent signs (`%`) and forward slashes (`/`) trigger this defect. Subsequent isolated testing clarified that only `/` is the problem. `%` is safe — facts with percentage values are returned normally.
+Forward slashes in fact values do not cause retrieval loss in v0.2.16.
 
-The affected fact in our test was the SLA uptime entry: "99.99% weekly, incident response SLA 15min." The `%` is not the issue; the `/` elsewhere in that value is. It was returned successfully in v0.2.12 but is now silently excluded. We confirmed it still exists in the knowledge base — a direct query retrieves it fine — so this isn't data loss. It's a retrieval pipeline defect, and it's narrow but real.
+**On the noise entry we previously flagged.**
 
-If you're storing facts that include file paths, URL paths, API endpoint notation, date formats like YYYY/MM/DD, or AWS region paths, they may not come back through observe or attend in v0.2.16. Percentage values are fine. Worth knowing which patterns to watch for.
-
-**On the remaining noise in the natural attend path.**
-
-When `iranti_attend` runs in its fully automatic mode — no hints, no force-injection — it still picks up one irrelevant fact alongside the project-specific ones. An entry called `user/main/favorite_city` (confidence=91) occupies one of the injection slots. This appears to come from the attend pipeline resolving the user's general context before the project-specific context, and it surfaces a piece of background user information that has nothing to do with the task.
-
-This noise entry doesn't appear when you use explicit hints or force-injection — those paths are clean. It's specifically the "fully automatic, figure it out from context" mode that still has this quirk. That's honest: the fully autonomous path is better than before, but it's not yet perfectly focused.
+We previously noted that an entry called `user/main/favorite_city` was showing up in retrieval results and taking up a slot that should have been used for relevant facts. The user/main noise entry no longer shows up in results. The slot-pollution we documented earlier is resolved.
 
 **The short version of where things stand:**
 
@@ -182,9 +176,9 @@ This noise entry doesn't appear when you use explicit hints or force-injection �
 | Recover facts with a hint | Works (83%) | Works (83%) |
 | Attend: decide to inject | Works (fixed in v0.2.14) | Works |
 | Attend: inject the right facts | Broken (couldn't find entity) | Mostly works |
-| Facts with / in value | Works | Silently dropped (new defect) |
-| Facts with % in value | Works | Works (% is safe) |
-| Noise entry in auto attend | Present | Present (narrowed to auto path) |
+| Facts with / in value | Works | Works (prior defect claim retracted) |
+| Facts with % in value | Works | Works |
+| Noise entry in auto attend | Present | Resolved — no longer surfaces in results |
 
 The trajectory is clearly positive. The architectural issue that made hint-free recovery impossible is resolved. What remains is a new narrow defect and some noise in one specific path — much more tractable problems than "the whole retrieval layer doesn't work."
 

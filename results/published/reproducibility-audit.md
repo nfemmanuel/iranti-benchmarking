@@ -326,6 +326,8 @@ Reproducibility implications:
 
 This risk has not worsened since v0.2.14 but also has not been addressed. Benchmark isolation from infrastructure writes remains incomplete.
 
+**Correction note (2026-03-21):** Revalidation confirms that the user/main/favorite_city entry no longer surfaces in iranti_attend or iranti_observe results. Slot-pollution behavior is resolved. The entry persists in the KB (source=memory_regression_noise, not typescript_smoke as originally reported), but it does not pollute retrieval results as of current revalidation. The reproducibility risk regarding KB state accumulation generally remains valid, but the specific slot-pollution impact documented here is no longer active.
+
 **Persistent risk 3 — HIGH: Special character parse failure creates silent fact exclusion**
 
 A new defect identified in v0.2.16 B11: values containing "%" or "/" characters trigger parse_error or invalid_json during attend/observe result scoring, causing those values to be silently excluded from the scored set. This is a systematic reproducibility risk with the following properties:
@@ -336,6 +338,8 @@ A new defect identified in v0.2.16 B11: values containing "%" or "/" characters 
 - The defect has not been confirmed fixed in v0.2.16. It is an open bug at the time of this audit.
 
 Required protocol response: all benchmark fact sets must prospectively document which values contain special characters. Trial records must distinguish parse_error exclusions from accuracy failures. Scores from trials with parse errors must be reported as "n recovered / m attempted, k excluded by parse error" rather than as a single accuracy rate. Until this is enforced, B11 scores and any future track using observe/attend scoring are not comparable across runs.
+
+**Correction note (2026-03-21):** The slash-value defect claim is retracted. A minimal repro test wrote a fact with value `{"route":"us-east-1/eu-west-1"}` and ran all four retrieval paths (iranti_query, iranti_observe, iranti_search, iranti_attend forceInject). All returned the value intact; dropped[] was empty. The parse_error/invalid_json signals observed in prior B11 tests were entity-extraction classification noise from the NLP pipeline — not fact-value loss. The forward slash in a fact value does not cause retrieval loss in v0.2.16. The reproducibility risk described above regarding silent parse_error exclusions remains a valid concern as a class, but the specific mechanism (slash in fact value triggers scoring failure) is not confirmed. Protocol guidance to document special-character values in fact sets remains prudent practice.
 
 **Persistent risk 4 — MODERATE: B12 and B13 are single-run new tracks — not yet replicated**
 
@@ -376,9 +380,9 @@ Residual: the semantic paraphrase failure in B4 is an open capability limitation
 | B4 | Crash blocks replication | Crash fixed; vectorScore active; direct attribute queries functional; paraphrase still fails | Partial — replication feasible for direct-attribute condition; paraphrase condition not replicable as successful |
 | B6 | Mock confound blocks production interpretation | Real LLM provider confirmed; 8/8 clean extraction; sub-key decomposition behavior documented | Improved — production baseline established; n=8 single entity type; sub-key counting convention not yet standardized |
 | B9 | Write-only — no retrieval tool | iranti_related and iranti_related_deep functional; 4/4 edges | Substantially improved — write-only risk retired; new tools require version-gating in protocol |
-| B11 observe | Mock confound; detectedCandidates=0 | Auto-detection fixed under real provider; 5/6 with hint; special char parse defect | Improved — production behavior now observable; parse defect is new open risk |
-| B11 attend | Mock confound; classifier fixed but untested under real LLM | 4/6 natural, 5/6 forceInject; noise entry persists; parse defect | Improved — real-provider results in hand; persistent risks (noise, parse defect) apply |
+| B11 observe | Mock confound; detectedCandidates=0 | Auto-detection fixed under real provider; 5/6 with hint; slash-value defect claim retracted (2026-03-21) | Improved — production behavior now observable; prior parse defect claim retracted |
+| B11 attend | Mock confound; classifier fixed but untested under real LLM | 4/6 natural, 5/6 forceInject; noise entry slot-pollution resolved (2026-03-21); slash-value defect claim retracted | Improved — real-provider results in hand; slot-pollution resolved; parse defect retracted |
 | B12 | New track | 0/8 baseline, 5/8 observe-hint, 8/8 explicit query, 0/8 handshake | New — single run; not yet replicated; capability gradient finding is directional |
 | B13 | New track | Cross-version durability confirmed; API stable; 3/3 write/read | New — existence proof only; not yet replicated |
 
-*This audit section documents the reproducibility posture as of v0.2.16. The three resolved risks represent genuine improvements to the program's evidential foundation. The four persistent risks — self-evaluation bias, KB state accumulation, special character parse failures, and unreplicated new tracks — remain blocking for any external publication claim and should be addressed in the next experimental cycle.*
+*This audit section documents the reproducibility posture as of v0.2.16. The three resolved risks represent genuine improvements to the program's evidential foundation. The persistent risks — self-evaluation bias, KB state accumulation, and unreplicated new tracks — remain blocking for any external publication claim and should be addressed in the next experimental cycle. The slash-value parse defect (formerly listed as a persistent risk) has been retracted per defect revalidation on 2026-03-21; the user/main slot-pollution risk has been resolved.*
