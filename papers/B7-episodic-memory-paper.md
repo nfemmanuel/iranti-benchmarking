@@ -1,7 +1,7 @@
 # Episodic Memory Recall in Long Multi-Turn Conversations: A Controlled Evaluation of Iranti-Assisted Retrieval Against Context-Reading at Moderate Transcript Length
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (Addendum: v0.2.16 full-protocol rerun, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Paper Author, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B7 — Conversational Episodic Memory
 **Model under test:** Iranti (installed instance, local) — iranti_write / iranti_query arm
@@ -290,3 +290,22 @@ See `benchmarks/B7-episodic-memory/conversation-transcript.md`.
 ## Appendix C: Baseline Trial Record
 
 See `results/raw/B7-baseline-trial.md`.
+
+---
+
+## Addendum: v0.2.16 Full-Protocol Rerun (2026-03-21)
+
+### Version History
+
+| Iranti version | Provider | Baseline arm | Iranti arm | Differential | Notes |
+|---------------|----------|-------------|------------|-------------|-------|
+| v0.2.12 | Mock LLM | 10/10 | 10/10 | 0 | Initial execution |
+| v0.2.16 | OpenAI (real) | 10/10 | 10/10 | 0 | Full-protocol rerun |
+
+### Observations
+
+The v0.2.16 rerun executed the full B7 protocol — 51-turn transcript (~5,500 tokens), 10 probe questions — under an OpenAI real-provider configuration. Both arms achieved 10/10 (100%) correct recall. The provider change from mock to real LLM had no measurable effect on either arm's accuracy. This is consistent with the expected behavior at this transcript length: the task is well within the context window for the baseline arm, and the Iranti arm uses deterministic exact-match lookup that is independent of provider.
+
+The null differential (0 percentage points) is confirmed on v0.2.16. The degradation regime — transcript lengths exceeding the context window or requiring cross-session retrieval — remains untested and is the primary target for future extended executions of this benchmark.
+
+**Verdict: 10/10 both arms confirmed on v0.2.16 with real LLM provider. Null differential confirmed. No regression. Degradation regime still untested.**

@@ -107,3 +107,7 @@ It works. That's what B2 establishes.
 
 *Full technical writeup: `papers/B2-cross-session-paper.md`*
 *Raw results: `results/raw/B2-cross-session.md`*
+
+---
+
+**Update — v0.2.16 rerun (2026-03-21):** The full 20-fact B2 protocol was rerun on Iranti v0.2.16 with a real OpenAI provider (replacing the mock LLM used previously). Result: 20/20 write and retrieval. No regressions. JSON key ordering in returned values varies between runs — this is a serialization artifact, not a correctness issue. The core finding stands: Iranti reliably stores and retrieves structured facts across sessions.

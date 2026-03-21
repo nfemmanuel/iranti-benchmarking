@@ -1,7 +1,7 @@
 # Two Attribution Layers: Evaluating Knowledge Provenance Tracking in Iranti's iranti_who_knows
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (Addendum: v0.2.16 full-protocol rerun, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B10 — Knowledge Provenance (iranti_who_knows)
 **Model under test:** Iranti (installed instance, local) — iranti_who_knows attribution tracking
@@ -309,3 +309,38 @@ See `benchmarks/B10-knowledge-provenance/benchmark.md`.
 ## Appendix B: Raw Results
 
 See `results/raw/B10-knowledge-provenance.md`.
+
+---
+
+## Addendum: v0.2.16 Full-Protocol Rerun (2026-03-21)
+
+### Version History
+
+| Iranti version | T1 | T2 | T3 (new) | T4 | T5 | Notes |
+|---------------|----|----|----------|----|----|-------|
+| v0.2.12 | PASS | PASS | N/A | PASS (edges not tracked) | PASS (source labels absent) | Initial execution |
+| v0.2.16 | PASS | PASS | PASS (new finding) | PASS (edges not tracked) | PASS (source labels absent) | Full-protocol rerun |
+
+### v0.2.16 Full Results
+
+| Test | Description | v0.2.16 result |
+|------|-------------|----------------|
+| T1 | `who_knows` returns `benchmark_program_main`, all 4 keys for default session entity | PASS — confirmed |
+| T2 | Agent override → `who_knows` returns `v0216_b10_agent_gamma` (not session default) | PASS — confirms B8 finding independently |
+| T3 (new) | Two different agent overrides writing to same entity → `who_knows` returns two separate entries | PASS — new significant finding |
+| T4 | Relationship edges still not tracked by `who_knows` | UNCHANGED — confirmed absent |
+| T5 | Source labels not in `who_knows` response | UNCHANGED — confirmed absent |
+
+### T3 New Finding: Multi-Agent Disambiguation at Entity Level
+
+Test T3 is new to v0.2.16 and is the principal new finding of this rerun. Two agents with different `agentId` configurations each wrote facts about the same entity. When `iranti_who_knows` was queried against that entity, it returned two separate entries — one per `agentId` — each listing only the keys that agent actually wrote, with correct contribution counts.
+
+This confirms empirically what was previously only inferred from implementation logic (Section 6.1, Threat 6.1): separate agent sessions with distinct `agentId` values do produce distinct entries in `who_knows` output. The single-session limitation identified in the v0.2.12 paper is now resolved.
+
+The practical consequence is significant. `iranti_who_knows` functions as a multi-agent audit tool at the entity level: given any entity shared by multiple agents, an operator can call `who_knows` and receive an attribution breakdown by contributing agent, showing exactly which keys each agent wrote and how many contributions each made. This capability is not replicated by source labels or any other single-session mechanism.
+
+T2 additionally confirms the B8 finding independently: when an agent session is configured with a non-default `agentId` (here `v0216_b10_agent_gamma`), `who_knows` reflects that configured identity rather than the session default.
+
+### Verdict
+
+Core `iranti_who_knows` functionality confirmed on v0.2.16 with real provider. The multi-agent disambiguation finding (T3) upgrades the assessment of `iranti_who_knows` from a single-agent accountability tool to a confirmed multi-agent audit tool. The two structural gaps identified in v0.2.12 — relationship edges not tracked, source labels not reflected — are unchanged and remain documented limitations.

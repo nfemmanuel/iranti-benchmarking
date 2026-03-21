@@ -115,3 +115,7 @@ This is what the null result in B7 is for: it's the before picture. The after pi
 *Full technical paper: `papers/B7-episodic-memory-paper.md`*
 *Benchmark specification: `benchmarks/B7-episodic-memory/benchmark.md`*
 *Raw results: `results/raw/B7-baseline-trial.md`*
+
+---
+
+**Update — v0.2.16 rerun (2026-03-21):** The full B7 protocol was rerun on Iranti v0.2.16 with a real AI provider (OpenAI) replacing the previous mock configuration. Both arms — context-reading baseline and Iranti-assisted — scored 10/10. No errors. The provider change made no difference to either arm, as expected at this transcript length. The null differential is confirmed. The degradation regime (very long transcripts exceeding the context window, or cross-session retrieval) remains the target for future extended runs of this benchmark.

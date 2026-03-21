@@ -119,3 +119,7 @@ The 4/5 score is honest. It's not a failure. It's also not 5/5.
 
 *Full technical writeup: `papers/B3-conflict-resolution-paper.md`*
 *Raw results: `results/raw/B3-conflict-resolution.md`*
+
+---
+
+**Update — v0.2.16 rerun (2026-03-21):** The deterministic conflict resolution cases (clear winner scenarios) still work perfectly in v0.2.16, as do dedup detection and the new C5 test (a high-confidence new source cleanly overriding a lower-confidence established entry). The edge case — two sources very close in reliability, where a real AI has to weigh in — runs into a technical timeout issue when a real AI provider is used. The LLM call takes about 7 seconds inside a database transaction window that allows about 5 seconds. The transaction times out, the operation rolls back safely, and the original value is preserved. It is the same defect found in B5 (where LLM arbitration also times out under real-provider latency). The practical guidance is unchanged: design your confidence values so that genuine conflicts produce a score gap above the deterministic threshold and avoid relying on AI arbitration for close calls in production deployments.

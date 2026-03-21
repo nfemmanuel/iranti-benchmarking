@@ -1,17 +1,24 @@
 # Knowledge Currency and Temporal Fact Update in an External Memory System: A Controlled Evaluation of Iranti's Conflict Resolution Architecture
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (v0.2.16 rerun addendum, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B5 — Knowledge Currency / Temporal Update
 **Model under test:** Iranti (installed instance, local)
 **Infrastructure:** Iranti instance at localhost:3001
 
+### Version History
+
+| Version | Date | Description |
+|---------|------|-------------|
+| 0.1 | 2026-03-21 | Initial draft — v0.2.12 mock-provider results (T1–T4) |
+| 0.2 | 2026-03-21 | v0.2.16 rerun addendum — real OpenAI provider; T5 added; transaction timeout defect documented |
+
 ---
 
 ## Abstract
 
-We evaluate whether Iranti's knowledge base supports temporal fact update — the ability to replace an outdated fact with a newer, more accurate value — under controlled conditions. The evaluation uses five test cases varying source identity, incoming confidence, and score gap. Results reveal that Iranti does not implement an explicit update primitive: all writes, including intended updates, are processed through the conflict resolution pipeline. Update acceptance is determined by a weighted scoring formula, `weighted_score = raw_confidence × (0.7 + source_reliability × 0.3)`, applied to both the incoming and existing entries. Deterministic acceptance or rejection occurs when the weighted score gap meets or exceeds 10 points; otherwise, the system routes to large language model (LLM) arbitration. A consistent bias in LLM arbitration was observed: in all cases routed to arbitration (2/2), the LLM rejected the incoming update, citing preference for the "established source" — even when both the existing and incoming sources were newly created and had equivalent reliability histories. The practical consequence is that updates by new sources cannot reliably succeed unless the raw confidence advantage is large enough that the weighted score gap exceeds the deterministic threshold. This finding has direct implications for any multi-agent system in which different agents maintain competing views of a shared fact over time.
+We evaluate whether Iranti's knowledge base supports temporal fact update — the ability to replace an outdated fact with a newer, more accurate value — under controlled conditions. The initial evaluation (v0.2.12, mock LLM provider) used five test cases varying source identity, incoming confidence, and score gap. A v0.2.16 rerun under a real OpenAI provider added a sixth test case and revealed a critical infrastructure defect. Results reveal that Iranti does not implement an explicit update primitive: all writes, including intended updates, are processed through the conflict resolution pipeline. Update acceptance is determined by a weighted scoring formula, `weighted_score = raw_confidence × (0.7 + source_reliability × 0.3)`, applied to both the incoming and existing entries. Deterministic acceptance or rejection occurs when the weighted score gap meets or exceeds 10 points; otherwise, the system routes to large language model (LLM) arbitration. In the v0.2.12 evaluation, a consistent bias in LLM arbitration was observed: in all cases routed to arbitration (2/2), the LLM rejected the incoming update, citing preference for the "established source." In the v0.2.16 rerun, the LLM arbitration path is non-functional: both cases requiring arbitration (T1, T4) failed with a transaction timeout error caused by the real OpenAI API latency (8–16 s) exceeding the open DB transaction window (~5 s). The timeout defect prevents confirmation or refutation of the v0.2.12 arbitration bias finding on v0.2.16. A new test case (T5) confirms that the deterministic path functions correctly for large confidence gaps across different sources. The practical consequence is that updates by new sources cannot reliably succeed unless the raw confidence advantage is large enough that the weighted score gap exceeds the deterministic threshold. When LLM arbitration is required, the path is currently broken under real provider latency. These findings have direct implications for any multi-agent system in which different agents maintain competing views of a shared fact over time.
 
 ---
 
@@ -98,6 +105,9 @@ The decision rule is:
 | T2 | conf=90, b5_initial | conf=75, b5_stale_source (new) | REJECT | Deterministic (gap=13.5) |
 | T3 | conf=85, b5_initial | conf=80, b5_reconfirm (same value) | no-op | Duplicate detection |
 | T4 | conf=80, b5_source_a | conf=85, b5_source_b (new) | AMBIGUOUS | LLM (gap=4.25) |
+| T5 | conf=70, b5_initial | conf=99, b5_update_large (new) | ACCEPT | Deterministic (large gap) |
+
+T5 was added in the v0.2.16 rerun to test whether a large raw confidence gap across different sources could bypass LLM arbitration via the deterministic path. With incoming conf=99 and new-source reliability=0.5, the weighted gap was expected to exceed 10.
 
 ### 3.4 Protocol
 
@@ -113,7 +123,11 @@ Each test case was executed against a live Iranti instance (localhost:3001). Ini
 
 ## 4. Results
 
-### 4.1 Trial Results by Test Case
+### 4.0 Version Notes
+
+Section 4.1 and 4.2 record the v0.2.12 results (mock LLM provider). Section 4.3 records the v0.2.16 rerun results (real OpenAI provider). The two sets are not directly comparable: the v0.2.16 run exposes a transaction timeout defect that was not present in the mock-provider run. Where results agree, confidence in the finding increases. Where they diverge (T1, T4), the v0.2.16 result cannot confirm or refute the v0.2.12 finding.
+
+### 4.1 Trial Results by Test Case (v0.2.12 — mock provider)
 
 **T1 — New source, higher confidence (85 → 92)**
 
@@ -155,7 +169,7 @@ Score calculation:
 
 Outcome: REJECTED. Reason: "LLM arbitration: The existing entry has a more established source and the confidence difference is minimal." Note: both sources were new at the time of this test; neither had an established reliability advantage over the other.
 
-### 4.2 Summary Table
+### 4.2 Summary Table (v0.2.12 — mock provider)
 
 | Test | Scenario | Outcome | Resolution Path |
 |------|----------|---------|-----------------|
@@ -165,14 +179,67 @@ Outcome: REJECTED. Reason: "LLM arbitration: The existing entry has a more estab
 | T3 | Duplicate value | REJECTED | Duplicate detection |
 | T4 | New source, conf 80→85 | REJECTED | LLM arbitration (gap=4.25) |
 
-### 4.3 Final KB State
+### 4.3 v0.2.16 Rerun Results (real OpenAI provider)
+
+**T1 — New source, conf 85→92**
+
+Outcome: ERROR — `Transaction API error: A query cannot be executed on an expired transaction`. The transaction opened, scores were computed, and the LLM call was initiated inside the open transaction. The real OpenAI API call took approximately 8–16 s. By the time the call returned and the system attempted to append a conflict log entry, the DB transaction had expired (~5 s window). The incumbent value was preserved by rollback. The update did not land. No conflict reason string was recorded.
+
+**T1b — Same source, conf 85→97**
+
+Outcome: ACCEPTED, deterministic. Weighted gap = 10.4. Behavior matches v0.2.12 (gap=10.6; minor numeric difference attributable to session-specific reliability state). Finding confirmed: same-source updates above the deterministic threshold are reliable.
+
+**T2 — New source, lower confidence (90 → 75)**
+
+Outcome: REJECTED, deterministic. Weighted gap = 12.7. Behavior matches v0.2.12. Finding confirmed: stale writes are correctly rejected by the deterministic path.
+
+**T3 — Duplicate value**
+
+Outcome: REJECTED, duplicate detected. Behavior matches v0.2.12. Finding confirmed: duplicate detection path functions correctly under both mock and real providers.
+
+**T4 — New source, small confidence gap (80 → 85)**
+
+Outcome: ERROR — same transaction timeout as T1. The LLM arbitration path was triggered (gap < 10) and the transaction expired before the LLM response was received. Incumbent preserved by rollback.
+
+**T5 — New source, large confidence gap (70 → 99)**
+
+Score calculation:
+- Existing: `70 × 0.886 = 62.0` (b5_initial, reliability ≈ 0.62)
+- Incoming: `99 × 0.85 = 84.2` (b5_update_large, new source, reliability = 0.5)
+- Gap: 24.6 → Deterministic acceptance (gap ≥ 10; LLM arbitration not triggered)
+
+Outcome: ACCEPTED, deterministic. This is the first confirmed case of a cross-source update succeeding under a real provider. The large raw confidence gap (70 → 99) was sufficient to push the weighted score gap above the 10-point deterministic threshold, bypassing the LLM arbitration path entirely.
+
+### 4.4 v0.2.16 Summary Table
+
+| Test | Scenario | v0.2.12 outcome | v0.2.16 outcome | Match? |
+|------|----------|-----------------|-----------------|--------|
+| T1 | Cross-source, conf 85→92 | REJECTED (LLM: established source) | ERROR — transaction timeout | NO |
+| T1b | Same-source, conf 85→97 | ACCEPTED, deterministic (gap=10.6) | ACCEPTED, deterministic (gap=10.4) | YES |
+| T2 | Lower-confidence stale | REJECTED, deterministic | REJECTED, deterministic (gap=12.7) | YES |
+| T3 | Duplicate value | REJECTED, duplicate detected | REJECTED, duplicate detected | YES |
+| T4 | Cross-source, small gap | REJECTED (LLM: established source) | ERROR — transaction timeout | NO |
+| T5 | Cross-source, conf 70→99 | N/A (new test) | ACCEPTED, deterministic (gap=24.6) | New |
+
+### 4.5 Final KB State (v0.2.12)
 
 | Entity | Final value | Note |
 |--------|------------|-------|
-| b5test/t1 | {role: "research_lead"} | T1b update accepted |
+| b5test/t1 | {role: "research_lead"} | T1b update accepted (t1 and t1b share entity; T1b won) |
 | b5test/t2 | {role: "senior_researcher"} | Original preserved, stale update rejected |
 | b5test/t3 | {role: "postdoc"} | Original preserved, duplicate rejected |
 | b5test/t4 | {role: "staff_engineer"} | Original preserved, source-switch rejected |
+
+### 4.6 Final KB State (v0.2.16)
+
+| Entity | Final value | Note |
+|--------|------------|-------|
+| b5test/t1 | {role: "junior_researcher"} (original) | T1 transaction timeout — incumbent preserved by rollback |
+| b5test/t1b | {role: "research_lead"} | T1b update accepted |
+| b5test/t2 | {role: "senior_researcher"} | Original preserved, stale update rejected |
+| b5test/t3 | {role: "postdoc"} | Original preserved, duplicate rejected |
+| b5test/t4 | {role: "staff_engineer"} | T4 transaction timeout — incumbent preserved by rollback |
+| b5test/t5 | {role: "director"} | T5 cross-source update accepted (large gap, deterministic) |
 
 ---
 
@@ -184,11 +251,32 @@ The most fundamental finding of B5 is architectural: Iranti does not expose a di
 
 This design is defensible from a noise-resistance perspective — uncontrolled overwriting would allow any agent to corrupt any fact — but it places the burden of temporal update on the agent's ability to satisfy the scoring formula and, when the formula does not yield a deterministic outcome, on LLM arbitration. The latter is not a reliable mechanism for intended updates, as documented below.
 
-### 5.2 LLM Arbitration Bias Toward Established Sources
+### 5.2 LLM Arbitration Bias Toward Established Sources (v0.2.12 finding; status uncertain as of v0.2.16)
 
-In both cases routed to LLM arbitration (T1 and T4), the LLM rejected the incoming update citing preference for the "established source." In T4, this reasoning is factually inaccurate: both sources (b5_source_a and b5_source_b) were new entries with equal reliability histories. The LLM appears to apply a "prefer existing" heuristic regardless of whether the existing source is genuinely more established than the incoming source.
+In the v0.2.12 evaluation (mock LLM provider), both cases routed to LLM arbitration (T1 and T4) were rejected by the LLM, which cited preference for the "established source." In T4, this reasoning was factually inaccurate: both sources were new with equal reliability histories. The pattern suggested a "prefer existing" heuristic in the LLM arbitration step.
 
-This represents a systematic bias. Because LLM arbitration occurs whenever the score gap is below 10 — a range that includes many realistic update scenarios — the bias has a broad practical footprint. Any update where the incoming confidence is not sufficiently higher than the existing confidence to push the weighted score gap to 10 or above will be routed to an arbitration process that appears to consistently prefer the existing entry.
+In the v0.2.16 rerun, both T1 and T4 encountered transaction timeout errors before the LLM response could be processed. The LLM arbitration path did not complete in either case. Consequently, the v0.2.12 arbitration bias finding cannot be confirmed or refuted on v0.2.16. The finding remains a hypothesis: consistent with the mock-provider evidence, not yet replicated under a real provider.
+
+The bias concern remains architecturally relevant: any update that falls below the 10-point deterministic threshold will be routed to LLM arbitration. If the arbitration step exhibits a "prefer existing" heuristic — as suggested by v0.2.12 — the practical footprint of that bias is broad. This question requires direct investigation once the transaction timeout defect is resolved.
+
+### 5.2a Transaction Timeout Defect (v0.2.16 new finding)
+
+The v0.2.16 rerun revealed a critical defect in the LLM arbitration code path. The failure mode is:
+
+1. A conflict write arrives with a score gap below the 10-point deterministic threshold.
+2. The system opens a DB transaction.
+3. Scores are computed within the transaction.
+4. The LLM arbitration call is issued while the transaction remains open.
+5. Real OpenAI API latency (measured at approximately 8–16 s in this environment) causes the transaction to exceed its ~5 s window.
+6. When the system attempts to append the conflict log entry after the LLM call returns, the transaction has expired.
+7. The write fails with: `Transaction API error: A query cannot be executed on an expired transaction`.
+8. The DB transaction is rolled back. The incumbent value is preserved. The incoming update does not land.
+
+The failure mode is safe in the sense that the incumbent is preserved and no data is corrupted or partially written. However, the failure is silent from the caller's perspective: the update simply does not land, with no mechanism for the calling agent to distinguish a soft conflict rejection from an infrastructure error. The conflict log entry is also not written, so there is no record of the attempt.
+
+**Trigger condition:** Any conflict write that (a) requires LLM arbitration (gap < 10) and (b) is executed against an Iranti instance using a real LLM provider with latency > transaction window. This condition applies to all LLM-arbitrated cross-source updates in a production deployment.
+
+**Impact:** The LLM arbitration path is non-functional under real provider conditions until the defect is addressed. The fix requires either (a) completing the LLM call outside the open transaction and then opening a new transaction for the write, or (b) extending the transaction timeout to accommodate real provider latency.
 
 The practical threshold for deterministic acceptance of a same-source update, derived from the scoring formula, is approximately:
 
@@ -197,6 +285,20 @@ raw_confidence_incoming - raw_confidence_existing ≥ 10 / (0.7 + reliability ×
 ```
 
 At `reliability = 0.62` (established source), this requires a raw confidence advantage of approximately 11.3 points. For a new-source update at `reliability = 0.5` on both sides, the gap threshold in terms of raw confidence is approximately 11.8 points — but the existing source's reliability premium also enters, so the effective requirement is higher. In practice, a new source updating an established source's fact would need to provide a raw confidence value high enough to overcome both the reliability premium of the existing entry and the 10-point threshold for deterministic acceptance. For typical confidence ranges (70–95), this is difficult or impossible to satisfy.
+
+### 5.2b T5 Finding: Large Confidence Gap Enables Deterministic Cross-Source Update (v0.2.16 new finding)
+
+Test T5 was added in the v0.2.16 rerun to determine whether a sufficiently large raw confidence gap could allow a cross-source update to succeed via the deterministic path, bypassing LLM arbitration entirely. The test used conf=70 (existing) and conf=99 (incoming, different source), yielding a weighted gap of approximately 24.6 — well above the 10-point threshold.
+
+Outcome: ACCEPTED, deterministic. The write succeeded under a real OpenAI provider with no transaction errors, confirming that the deterministic path is reliable under real provider conditions.
+
+This finding provides a practical workaround for the LLM arbitration defect: if the raw confidence gap between incoming and existing values is large enough to push the weighted score gap above 10, the LLM arbitration path is not triggered, the transaction remains short, and the write succeeds. For a new source (reliability=0.5) updating an established source's entry (reliability≈0.62), the required raw confidence advantage to clear the 10-point threshold is approximately:
+
+```
+gap_needed ≈ 10 / 0.85 + (existing_conf × 0.886 - existing_conf × 0.85) / 0.85
+```
+
+In practice, for existing conf values in the range 70–90, a large raw advantage (e.g., incoming conf ≥ 95 when existing conf ≤ 75) is needed. This is not universally achievable — if the existing entry already has high confidence (e.g., 90+), no incoming confidence value can provide a 10-point weighted gap against an established source from a new source. In that case, the only reliable update path is same-source.
 
 ### 5.3 Duplicate Detection as a Distinct Resolution Path
 
@@ -217,10 +319,11 @@ This estimate is derived from score observations, not direct inspection of the r
 The B5 findings have direct implications for any deployment in which multiple agents share a single Iranti KB and individual agents may have changing or superseding information about the same entities:
 
 1. An agent that wrote a fact first acquires a reliability advantage that makes its entries harder to update by subsequent agents.
-2. Updates by new agents are nearly always routed to LLM arbitration (because the new agent's reliability is lower, the score gap is unlikely to reach 10 without a very large raw confidence advantage), and LLM arbitration consistently favors the existing entry.
-3. The reliable update path requires using the same source identity as the original write, and providing a raw confidence advantage sufficient to generate a weighted score gap of at least 10.
+2. Updates by new agents are nearly always routed to LLM arbitration (because the new agent's reliability is lower, the score gap is unlikely to reach 10 without a very large raw confidence advantage). In the v0.2.12 mock-provider run, LLM arbitration consistently favored the existing entry. In v0.2.16, the LLM arbitration path fails entirely under real provider latency.
+3. The reliable update path requires either (a) using the same source identity as the original write with a raw confidence advantage sufficient to generate a weighted score gap of at least 10, or (b) using a different source with a large enough raw confidence gap to clear the deterministic threshold directly (T5 confirmed this at a gap of 24.6).
+4. As of v0.2.16, the LLM arbitration path is a hard failure mode for production use: the transaction times out, the write fails silently from the caller's perspective, and no conflict log entry is recorded.
 
-In summary: Iranti's conflict resolution architecture, as currently implemented, functions well as a noise filter but poorly as an update mechanism for evolving facts. Systems that require temporal update should either adopt same-source write conventions or await a forced-write or privileged-write mechanism that bypasses the conflict resolution pipeline.
+In summary: Iranti's conflict resolution architecture functions well as a noise filter and as a deterministic resolver for sufficiently large confidence gaps. It does not currently function as an update mechanism for close-call cross-source conflicts under real provider conditions. Systems that require temporal update should adopt same-source write conventions or, for cross-source updates, ensure the confidence gap is large enough to trigger deterministic resolution. The LLM arbitration path should not be relied upon in production until the transaction timeout defect is resolved.
 
 ---
 
@@ -232,7 +335,7 @@ The reliability values (≈0.62 for b5_initial, 0.5 default) and the scoring for
 
 ### 6.2 Small Sample Size
 
-Five test cases, each executed once, with no repeated trials. It is not possible to estimate variance or construct confidence intervals for any of the reported outcomes. The observed LLM arbitration behavior (2/2 rejections) is consistent with a systematic bias but cannot be distinguished from coincidence at this sample size. A larger evaluation (e.g., 20+ test cases covering a broader range of score gaps and source histories) is needed before strong claims about arbitration bias can be made.
+Six test cases total (five in v0.2.12, one added in v0.2.16), each executed once, with no repeated trials. It is not possible to estimate variance or construct confidence intervals for any of the reported outcomes. The observed LLM arbitration behavior (2/2 rejections in v0.2.12) is consistent with a systematic bias but cannot be distinguished from coincidence at this sample size, and the v0.2.16 rerun could not replicate the arbitration conditions due to the transaction timeout defect. A larger evaluation (e.g., 20+ test cases covering a broader range of score gaps and source histories) is needed before strong claims about arbitration bias can be made.
 
 ### 6.3 Session-Specific Reliability State
 
@@ -246,17 +349,65 @@ The evaluation did not test whether an explicit forced-write operation, a privil
 
 All trials were conducted against a single Iranti instance in a single session. Infrastructure-level variability (e.g., LLM arbitration using a non-deterministic language model) means that the LLM arbitration outcomes (T1, T4) might differ in repeated executions. No repeated-trial data are available to assess this variability.
 
+### 6.6 Transaction Timeout Defect Masks LLM Arbitration Behavior (v0.2.16-specific)
+
+The v0.2.16 rerun was intended to confirm or refute the v0.2.12 LLM arbitration bias finding under a real provider. Instead, the transaction timeout defect caused both LLM-arbitrated test cases to fail before the LLM response was processed. The defect is a real finding in its own right, but it means the arbitration bias question remains open. Any future evaluation of LLM arbitration behavior must first address the transaction window issue.
+
+### 6.7 Provider Latency Not Measured Precisely
+
+The estimate of 8–16 s for real OpenAI API latency is based on observed timing of the benchmark runs and is not a controlled measurement. The exact latency at which the transaction timeout is triggered depends on the API model, system load, network conditions, and prompt length. The ~5 s transaction window estimate is inferred from the failure pattern, not directly observed from Iranti's internal configuration.
+
 ---
 
 ## 7. Conclusion
 
-The B5 benchmark evaluates Iranti's capacity for temporal fact update — the replacement of a stale KB entry with a newer, more accurate value. Five test cases covering new-source updates, same-source updates, stale writes, duplicate detection, and source-switching revealed the following findings:
+The B5 benchmark evaluates Iranti's capacity for temporal fact update — the replacement of a stale KB entry with a newer, more accurate value. Six test cases across two evaluation runs (v0.2.12 with a mock LLM provider; v0.2.16 with a real OpenAI provider) have revealed the following consolidated findings.
 
-Iranti does not implement an explicit update primitive. All writes are processed through conflict resolution. The conflict resolution system applies a weighted scoring formula (`weighted_score = raw_confidence × (0.7 + source_reliability × 0.3)`) and routes decisions to either a deterministic path (when the weighted score gap meets or exceeds 10) or to LLM arbitration (when the gap is below 10). In the deterministic path, the higher-scoring entry wins; the stale-write rejection in T2 and the same-source update acceptance in T1b were both correctly handled by this path. Duplicate value detection (T3) operates as a distinct path that correctly rejects lower-confidence reconfirmation writes.
+Iranti does not implement an explicit update primitive. All writes are processed through conflict resolution. The conflict resolution system applies a weighted scoring formula (`weighted_score = raw_confidence × (0.7 + source_reliability × 0.3)`) and routes decisions to either a deterministic path (gap ≥ 10) or LLM arbitration (gap < 10). The deterministic path functions correctly under both mock and real providers: stale writes are rejected (T2), same-source updates with sufficient gap are accepted (T1b), large-gap cross-source updates are accepted (T5), and duplicate detection operates as a distinct path (T3).
 
-The critical failure mode is in LLM arbitration. Both cases routed to LLM arbitration were rejected, with the LLM citing preference for the "established source" in both instances — including T4, where both sources were equally new and neither had an established reliability advantage. This suggests a "prefer existing" bias in the LLM arbitration step that will systematically block new-source updates when the score gap does not reach the deterministic threshold.
+The LLM arbitration path presents two unresolved problems. First, the v0.2.12 mock-provider run observed a "prefer existing" bias (2/2 rejections citing established source preference, including in T4 where neither source was established). Second, and more critically for production use, the v0.2.16 run demonstrated that the LLM arbitration path is non-functional under real provider latency: the DB transaction expires before the LLM response is received, causing the write to fail silently with the incumbent preserved by rollback. The transaction timeout defect means the v0.2.12 bias finding cannot be confirmed or refuted on v0.2.16.
 
-The practical implications are constrained by the small sample size and the inferred — rather than directly observed — nature of the scoring formula. We treat the arbitration bias finding as a hypothesis requiring further evaluation, not a confirmed result. Nonetheless, the finding is internally consistent and its practical consequences are significant enough to warrant investigation before multi-agent or temporally evolving KB deployments are planned.
+The current practical conclusion is: the deterministic path is the only reliable update mechanism in Iranti under real provider conditions. Cross-source updates require either same-source conventions or a large enough raw confidence gap to bypass arbitration (T5: gap=24.6 was sufficient; the 10-point threshold is the design criterion). The LLM arbitration path should not be used in production until the transaction timeout defect is resolved.
+
+The arbitration bias hypothesis remains open. It requires a test environment with a mock or fast provider to isolate arbitration behavior from infrastructure constraints.
+
+---
+
+---
+
+## 7a. Addendum: v0.2.16 Rerun Summary (2026-03-21)
+
+This addendum records the v0.2.16 rerun results in consolidated form for readers consulting the paper after the initial draft.
+
+**Provider change:** v0.2.12 used a mock LLM provider with near-zero latency. v0.2.16 used the real OpenAI API (latency measured at approximately 8–16 s).
+
+**New defect discovered:** The LLM arbitration code path opens a DB transaction, computes scores, calls the LLM inside the transaction, and then attempts to write the conflict log. Under real provider latency, the transaction expires (~5 s window) before the write can complete. The error is `Transaction API error: A query cannot be executed on an expired transaction`. The incumbent is preserved by rollback. No conflict log is written. The caller receives no result distinguishing this infrastructure error from a normal rejection.
+
+**Test results:**
+
+| Test | v0.2.12 | v0.2.16 | Interpretation |
+|------|---------|---------|----------------|
+| T1 (cross-source, 85→92, gap=2.9) | REJECTED — LLM: established source | ERROR — transaction timeout | LLM bias hypothesis unconfirmable on v0.2.16 |
+| T1b (same-source, 85→97, gap=10.4) | ACCEPTED, deterministic | ACCEPTED, deterministic | Confirmed stable |
+| T2 (lower-conf stale, gap=12.7) | REJECTED, deterministic | REJECTED, deterministic | Confirmed stable |
+| T3 (duplicate value) | REJECTED, duplicate detected | REJECTED, duplicate detected | Confirmed stable |
+| T4 (cross-source, 80→85, gap=4.25) | REJECTED — LLM: established source | ERROR — transaction timeout | LLM bias hypothesis unconfirmable on v0.2.16 |
+| T5 (cross-source, 70→99, gap=24.6) | N/A | ACCEPTED, deterministic | New: large-gap cross-source update reliable |
+
+**What can be concluded from v0.2.16:**
+- Deterministic resolution (T1b, T2, T3, T5) works correctly under real provider conditions.
+- Large-gap cross-source updates bypass LLM arbitration and succeed (T5 confirms this for the first time under a real provider).
+- The LLM arbitration path is non-functional in production. Every LLM-arbitrated write will fail with a transaction timeout until the defect is fixed.
+- The v0.2.12 "established source" bias finding (T1/T4) is not confirmed or refuted by v0.2.16 — those cases never reached the LLM.
+
+**What cannot be concluded from v0.2.16:**
+- Whether the LLM arbitration bias persists in v0.2.16 code. The arbitration logic may have changed or been unchanged; the transaction defect prevents observation.
+- Whether the "prefer existing" heuristic is a prompt artifact, an emergent behavior of the model, or an implementation choice.
+
+**Required follow-up:**
+1. Fix the transaction timeout defect (move LLM call outside the transaction; reopen transaction for the write).
+2. Re-run T1 and T4 under a real provider after the fix to test whether the arbitration bias persists.
+3. Extend B5 with a broader set of arbitration test cases once the path is functional.
 
 ---
 

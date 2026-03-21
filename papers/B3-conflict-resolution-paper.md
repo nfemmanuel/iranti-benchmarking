@@ -1,7 +1,7 @@
 # Conflict Resolution Accuracy in Iranti: An Evaluation of Confidence-Weighted Arbitration Under Adversarial Write Conditions
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (Addendum: v0.2.16 full-protocol rerun, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B3 — Conflict Resolution
 **Model under test:** Iranti (installed instance, local)
@@ -283,3 +283,38 @@ See `benchmarks/B3-conflict-resolution/conditions.md`.
 ## Appendix B: Trial Records
 
 See `results/raw/B3-conflict-resolution.md`.
+
+---
+
+## Addendum: v0.2.16 Full-Protocol Rerun (2026-03-21)
+
+### Version History
+
+| Iranti version | C1 | C2 | C3 | C4 | C5 | Notes |
+|---------------|----|----|----|----|-----|-------|
+| v0.2.12 | PASS | PASS | FAILED (mock LLM) | PASS | N/A | Mock LLM provider; C5 not run |
+| v0.2.16 | PASS | PASS | ERROR (timeout) | PASS | PASS (new) | Real OpenAI provider |
+
+### v0.2.16 Condition Outcomes
+
+| Case | Path | v0.2.16 result |
+|------|------|----------------|
+| C1 | Deterministic reject (gap=25.5) | PASS |
+| C2 | Deterministic reject (gap=34.0) | PASS |
+| C3 | LLM arbitration zone (gap=4.25) | ERROR — transaction timeout 7.2s > 5s window |
+| C4 | Dedup detected | PASS |
+| C5 (new) | Deterministic update (gap=24.65) | PASS |
+
+### C3 Transaction Timeout
+
+C3 requires LLM arbitration (gap=4.25 is below the deterministic threshold). Under the real OpenAI provider, the LLM call takes approximately 7.2 seconds. The conflict resolution path executes inside a database transaction with a ~5-second window. The transaction times out before the LLM response returns, and the operation is rolled back. The incumbent value is preserved (data-safe outcome). This is the same defect identified in B5 T1/T4: real-provider LLM latency exceeds the transaction timeout configured for the LLM arbitration path.
+
+This is not a conflict resolution logic regression. The deterministic paths (C1, C2, C4) all pass. The LLM arbitration path is structurally unavailable under real-provider latency due to the transaction timeout constraint. The v0.2.12 C3 "FAILED" result was attributable to mock LLM behavior producing incorrect arbitration output; the v0.2.16 C3 "ERROR" is a timeout at the infrastructure layer. Both versions fail C3, but for different reasons. The underlying conflict logic is not at fault in v0.2.16.
+
+### C5 New Finding
+
+C5 tests a new condition: a conf=99 new source attempting to override a conf=70 established source at a gap of 24.65 weighted points. The gap exceeds the deterministic threshold, so no LLM call is needed. The new higher-confidence source correctly overrides the incumbent. This demonstrates that the deterministic update path works correctly for clear-winner incoming writes (not only for clear-winner incumbent retention as tested in C1).
+
+### Verdict
+
+Deterministic conflict resolution logic is confirmed across all deterministic paths in v0.2.16. The LLM arbitration path is structurally unavailable under real-provider conditions due to a transaction timeout defect shared with B5. This is an infrastructure constraint, not a logic defect. The practical guidance for operators remains: configure confidence values so that genuine conflict cases produce a weighted gap above the deterministic threshold, avoiding reliance on LLM arbitration for close calls in production deployments.

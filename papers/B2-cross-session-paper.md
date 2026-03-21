@@ -1,7 +1,7 @@
 # Cross-Session Memory Persistence in Iranti: A Controlled Write-Retrieve Evaluation
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (Addendum: v0.2.16 full-protocol rerun, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B2 — Cross-Session Memory Persistence
 **Model under test:** Iranti (installed instance, local)
@@ -265,3 +265,20 @@ See `benchmarks/B2-cross-session/dataset.md`.
 ## Appendix B: Trial Records
 
 See `results/raw/B2-cross-session.md`.
+
+---
+
+## Addendum: v0.2.16 Full-Protocol Rerun (2026-03-21)
+
+### Version History
+
+| Iranti version | Protocol | Write | Retrieval | Notes |
+|---------------|----------|-------|-----------|-------|
+| v0.2.12 | 20-fact, 5 entities | 20/20 | 20/20 | Mock LLM provider |
+| v0.2.16 | 20-fact, 5 entities | 20/20 | 20/20 | Real OpenAI provider |
+
+### Observations
+
+The v0.2.16 rerun executed the full 20-fact protocol (5 entities × 4 facts) under an OpenAI real-provider configuration rather than the mock LLM used in v0.2.12. All 20 writes succeeded and all 20 facts were retrieved correctly. One behavioral observation: JSON key ordering in retrieved values varies between executions (serialization order, not deterministic). This is a serialization property only; it does not affect value correctness or retrieval accuracy. No facts were returned with incorrect values, wrong entities, or missing keys.
+
+**Verdict: fully confirmed on v0.2.16 with real LLM provider. No regression observed across any test dimension.**

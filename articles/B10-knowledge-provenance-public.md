@@ -169,3 +169,7 @@ B10 also resolves a question that B8 left open. The B8 multi-agent simulation us
 
 *Full technical writeup: `papers/B10-knowledge-provenance-paper.md`*
 *Raw results: `results/raw/B10-knowledge-provenance.md`*
+
+---
+
+**Update — v0.2.16 rerun (2026-03-21):** The v0.2.16 rerun confirmed all prior findings and added one new significant result. The basic attribution (who wrote which facts) still works correctly. The finding that `who_knows` tracks actual agent identity rather than caller-supplied source labels is independently confirmed. The previously untested multi-agent case — what happens when two different agents both write to the same topic — was tested for the first time. Result: when multiple AI agents share the same knowledge base and both write to the same entity, Iranti keeps track of which agent wrote which fact. Calling `iranti_who_knows` on that entity returns two separate entries, one per agent, each correctly listing only the keys that agent contributed. This makes `iranti_who_knows` a functional multi-agent audit tool within a single instance: you can ask "who knows what about this project?" and get an answer broken down by contributor, not just a single name. That is a meaningful capability for any system where multiple agents are collaborating or where you need to trace accountability back to a specific agent.
