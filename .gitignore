@@ -4,8 +4,6 @@
 node_modules/
 results/raw/*
 !results/raw/.gitkeep
-results/published/*
-!results/published/.gitkeep
 *.log
 .env.iranti.local
 .claude/

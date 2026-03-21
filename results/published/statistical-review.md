@@ -1,0 +1,373 @@
+# Statistical Review Memo — Iranti Benchmarking Program
+
+**Prepared by:** statistics_reviewer
+**Date:** 2026-03-21
+**Scope:** Benchmarks B1, B1-large, B1-N500, B2, B3, B4, B5, B6, B7
+**Status:** Pre-publication review — not cleared for external release
+
+---
+
+## 1. Executive Summary
+
+Nine benchmark tracks have been executed across eight benchmark families. All tracks continue to suffer from critically small sample sizes: no track has sufficient observations to support confidence intervals, hypothesis tests, or publication-grade statistical claims. The primary findings are directional indicators, not quantified effects.
+
+Two systemic issues contaminate the evidentiary quality of most tracks: (1) the same model (Claude Sonnet 4.6) that generates test stimuli also evaluates its own answers, creating unquantifiable self-evaluation bias throughout; and (2) a KB contamination event in B6 has now been **confirmed as a critical defect** — the iranti_ingest pipeline does not extract from input text but instead writes values from existing KB entries verbatim, rendering ingest-based population entirely unreliable.
+
+Three additional findings from this session sharpen the program's direction:
+
+- **B1 at N=500**: Null differential confirmed with a more demanding haystack (~28k tokens, 500 entities, one notable distractor). Both arms remain at ceiling. The degradation regime remains untested; N=1000+ is required.
+- **B4 mechanism resolved**: The multi-hop search failure is structural, not a timing artifact. Vector embeddings are not indexed for any KB entries (vectorScore=0 across all searches). The lexical (TF-IDF) component degrades toward zero for terms appearing in multiple KB entries, making attribute-value discovery unreliable when the queried value is not uniquely discriminating in the KB. The oracle arm (known entity IDs via iranti_query) continues to perform at 100%.
+- **B7 established**: Conversational episodic memory benchmark added. Both arms (context-reading baseline and Iranti-assisted) scored 10/10 at ~5,500 tokens (~51-turn meeting transcript). Null differential is expected at this scale. The framework is in place; longer transcripts (50k–200k tokens) are needed to enter the degradation regime.
+
+---
+
+## 2. Master Results Table
+
+| Benchmark | Track | n (trials) | Baseline score | Iranti score | Differential | Statistically supportable? |
+|-----------|-------|-----------|---------------|--------------|--------------|---------------------------|
+| B1 — Entity retrieval, N=5 | Baseline | 10 Qs | 10/10 (100%) | — | — | No |
+| B1 — Entity retrieval, N=20 | Baseline | 10 Qs | 10/10 (100%) | — | — | No |
+| B1 — Entity retrieval, N=20+adversarial | Baseline | 10 Qs | 10/10 (100%) | — | — | No |
+| B1 — Iranti retrieval arm (prior-session data) | Iranti exact lookup | 8 Qs | — | 8/8 (100%) | Null | No |
+| B1 — Iranti write arm (full cycle) | Iranti write+query | 8 Qs | — | 8/8 (100%) | Null | No |
+| B1-large — Entity retrieval, N=100 | Baseline | 10 Qs | 10/10 (100%) | — | — | No |
+| B1-large — Iranti arm, N=100 | Iranti exact lookup | 8 Qs | — | 8/8 (100%) | Null | No |
+| B1-N500 — Entity retrieval, N=500 | Baseline | 10 Qs | 10/10 (100%) | — | — | No |
+| B1-N500 — Iranti arm, N=500 | Iranti exact lookup | 10 Qs | — | 10/10 (100%) | Null | No |
+| B2 — Cross-session persistence | Iranti write+query | 20 Qs | 0% (definitional) | 20/20 (100%) | N/A (mechanistic) | No |
+| B3 — Conflict resolution (all conditions) | Iranti only | 5 conditions × 1 trial | — | 4/5 (80%) | — | No |
+| B3 — LLM arbitration sub-set | Iranti only | 3 conditions × 1 trial | — | 3/3 (100%) | — | No |
+| B4 — Multi-hop, Iranti search-based | Both arms | 4 Qs | 4/4 (100%) | 1/4 (25%) | −75 pp | No |
+| B4 — Multi-hop, Iranti oracle (entity IDs known) | Iranti only | 4 Qs | — | 4/4 (100%) | Null | No |
+| B5 — Knowledge update | Iranti only | 5 conditions × 1 trial | — | See below | — | No |
+| B6 — Text ingest pipeline (original) | Iranti only | 1 passage, 4 keys | — | 1/4 (25%) | — | No |
+| B6 — Text ingest isolation test (kai_bergstrom) | Iranti only | 1 passage, 4 keys | — | 0/4 (0%) | — | No |
+| B7 — Episodic memory, ~5,500 tokens | Baseline | 10 Qs | 10/10 (100%) | — | — | No |
+| B7 — Episodic memory, ~5,500 tokens | Iranti write+query | 10 Qs | — | 10/10 (100%) | Null | No |
+
+**B5 sub-conditions:**
+
+| B5 test | Outcome |
+|---------|---------|
+| T1: new source, conf 85→92 | REJECTED (unexpected) |
+| T1b: same source, conf 85→97 | ACCEPTED |
+| T2: stale update, lower confidence | REJECTED (correct) |
+| T3: duplicate value | REJECTED (correct) |
+| T4: new source, conf 80→85 | REJECTED (unexpected) |
+
+---
+
+## 3. Sample Size Assessment — Are Any Statistical Claims Supportable?
+
+### 3.1 General conclusion: No.
+
+No benchmark track meets the minimum sample size required to compute a meaningful confidence interval or reject a null hypothesis at conventional significance levels.
+
+The following table summarizes the count of independent observations per track and the minimum n typically required for a 95% CI with ±5 percentage points half-width on a binomial proportion near 50% (approximately n ≥ 384; at 90% or 100% proportions the required n is lower but still well above what is available):
+
+| Track | Observed n | Required n for 95% CI ±5pp | Gap |
+|-------|-----------|---------------------------|-----|
+| B1 baseline (each sub-condition, N=5/20/100/500) | 10 per sub-condition | ~120–385 | Critical |
+| B1 baseline (pooled across all N-levels) | 40 | ~120–385 | Severe |
+| B1 Iranti arm (pooled) | 8–10 per N-level | ~120–385 | Critical |
+| B2 retrieval | 20 | ~120–385 | Severe |
+| B3 conflict resolution | 5 | ~120–385 | Critical |
+| B4 multi-hop | 4 | ~120–385 | Critical |
+| B5 update behavior | 5 | ~120–385 | Critical |
+| B6 ingest (pooled across both trials) | 8 | ~120–385 | Critical |
+| B7 episodic memory | 10 per arm | ~120–385 | Critical |
+
+**None of the tracks have sufficient n. All scores should be treated as point estimates with unknown precision.** The phrase "100% accuracy" as observed in B1, B2, B4 (oracle arm), and B7 does not mean "always correct" — it means "correct on the specific small sample tested."
+
+### 3.2 Special case: B2 Baseline
+
+The B2 baseline score of 0% is definitional (stateless LLMs have no cross-session memory by construction), not empirical. This is not a measured result — it is a logical consequence of LLM architecture. It requires no statistical support but also provides no empirical information about magnitude or conditions under which Iranti memory outperforms context management strategies such as retrieval-augmented generation or summarization.
+
+### 3.3 Special case: B4 Differential (−75 pp)
+
+The 75 percentage point gap between baseline (4/4) and Iranti search-based (1/4) in B4 is large enough to be directionally meaningful even at n=4. However, with n=4 the 95% confidence interval on the Iranti search score spans approximately [1%, 81%] (Wilson interval). The differential cannot be confidently bounded at this n. The finding is now confirmed as reflecting a structural capability limit (Section 5.5), not a transient infrastructure state, which strengthens the directional interpretation — but does not resolve the sample size problem.
+
+### 3.4 Special case: B6 Combined Evidence
+
+The two B6 trials (diana_voronova and kai_bergstrom) together provide 8 extraction attempts, yielding 1/8 correct (12.5%). More importantly, the two trials constitute a controlled contrast: the isolation test used values entirely absent from the KB, eliminating the possibility that correct extractions in the original test reflected genuine extraction rather than coincidental KB match. This controlled contrast is more informative than either trial alone and supports the contamination finding at a qualitative level. Formal statistical confirmation still requires more trials across diverse KB states.
+
+---
+
+## 4. Where Confidence Intervals Could Be Computed if Sample Size Were Adequate
+
+The following measurements are the appropriate targets for confidence interval estimation once sample sizes are sufficient. For each, the estimand and appropriate method are noted.
+
+| Measurement | Estimand | Recommended method | Minimum n for 95% CI ±5pp |
+|------------|----------|-------------------|--------------------------|
+| B1 baseline accuracy by N-level | Binomial proportion | Wilson interval | ~120 per N-level |
+| B1 baseline accuracy vs. N (trend) | Logistic regression slope | Logistic regression | ~200+ across range of N |
+| B1 Iranti exact-lookup accuracy | Binomial proportion | Wilson interval | ~120 |
+| B1/B1-large/B1-N500 differential (Iranti vs. baseline) | Difference in proportions | Two-proportion Z-test | ~200 per arm |
+| B3 conflict resolution accuracy | Binomial proportion | Wilson interval | ~120 per resolution path type |
+| B3 LLM arbitration accuracy | Binomial proportion (3 observations far too few) | Wilson interval | ~120 |
+| B4 Iranti search-based multi-hop | Binomial proportion | Wilson interval | ~120 |
+| B4 baseline vs. Iranti differential | Difference in proportions | McNemar test (matched pairs) or Z-test | ~200 per arm |
+| B5 acceptance/rejection rate | Binomial proportion (binary outcome per condition) | Wilson interval | ~120 |
+| B6 extraction accuracy | Binomial proportion (per key type) | Wilson interval | ~120 per key type |
+| B7 baseline accuracy by transcript length | Binomial proportion | Wilson interval | ~120 per length-level |
+| B7 Iranti vs. baseline differential | Difference in proportions | Two-proportion Z-test | ~200 per arm |
+| B1 latency (Iranti vs. context-read) | Mean response time difference | Paired t-test | ~30 minimum, ~100 for stable estimate |
+
+Note: in tracks where ceiling effects are apparent (B1, B2, B7), larger N entity scales or longer transcripts may be necessary to move both arms off 100% before differential statistics are meaningful at all. See Section 6.
+
+---
+
+## 5. Threats to Validity
+
+The following threats are ordered by severity and scope.
+
+### 5.1 CRITICAL: Self-Evaluation Bias (all tracks)
+
+The same model (Claude Sonnet 4.6) that performs as the baseline agent also evaluates the correctness of its own answers. This creates self-consistency bias of unknown magnitude. In standard benchmarking practice, evaluation is performed by a held-out judge model, human annotators, or automated string matching against a pre-committed ground truth file. None of these safeguards are in place.
+
+**Affected tracks:** All (B1, B1-large, B1-N500, B2, B3, B4, B5, B6, B7).
+
+**Effect direction:** Likely inflates baseline scores. The model may apply lenient matching to its own answers (e.g., accepting "OpenAI" and "OpenAI Research" as equivalent when only one is in the ground truth). This risk is highest in B4 baseline (100% score), B1/B1-N500 (100% across all conditions), B2 (20/20), and B7 (10/10 both arms).
+
+**Mitigation required:** Pre-commit ground truth to a locked file before running any baseline. Evaluate correctness by string matching or a separate judge model that did not generate the answers.
+
+### 5.2 CRITICAL: KB Contamination in B6 — Confirmed Critical Defect
+
+The B6 ingest pipeline has been confirmed as systematically unreliable through two independent trials.
+
+**Original B6 trial (diana_voronova):** 1/4 correct extractions. Three wrong values matched existing KB entries (lena_gross, aisha_okonkwo, ticket/cp_t010/cp_t011). Contamination was hypothesized.
+
+**Isolation test (kai_bergstrom):** 0/4 correct extractions. All four probe values were chosen specifically because they do not appear anywhere in the KB before the test. All four extracted values exactly match entries from ticket/cp_t010 and ticket/cp_t011 — and the extracted summaries are verbatim identical to existing KB summaries for those entries, not merely semantically similar.
+
+The controlled contrast between the two trials eliminates the alternative explanation that wrong values in diana_voronova arose from extraction errors that coincidentally resembled KB content. kai_bergstrom's results show the Librarian writing KB content verbatim as if extracted from input text, for an entity whose facts have no overlap with the KB whatsoever.
+
+**Mechanism (as far as observable):** The Librarian appears to retrieve the top-K most relevant existing KB entries and write those values as extracted facts, rather than extracting from the input passage. The dominant contamination source is ticket/cp_t010 and ticket/cp_t011 (the oldest researcher-profile-shaped entries in the KB). The root cause — whether this is a prompt design defect, an architectural behavior, or a bug — cannot be determined without access to the Librarian's internal prompt.
+
+**Severity:** Confirmed critical defect. The iranti_ingest pipeline cannot be used as a primary KB population mechanism. It may silently appear to work when the input text and KB content overlap (as in diana_voronova's correct affiliation answer), which means failures may be masked in production use. Structured writes via iranti_write are the only confirmed-reliable write path.
+
+**Implication for other tracks:** The B1 Iranti retrieval arm (prior-session data, trials IA1–IA8) relies on entities ticket/cp_t010 and ticket/cp_t011 written by a prior agent in a prior session (2026-03-20). If those entities were written via iranti_ingest, their stored values may themselves be contaminated. If they were written via iranti_write, they are trustworthy. This provenance question remains unresolved and propagates contamination risk backward into B1 Iranti arm results. Inspecting the write log for ticket/cp_t010 and ticket/cp_t011 is a prerequisite for clearing B1 IA arm results of this risk.
+
+**Mitigation required:** Re-run B6 with entities written by a specific named ingest source to isolate the Librarian's behavior. Test whether the contamination pattern persists when the KB is empty (namespace isolation). Determine whether the Librarian's extraction behavior is configurable.
+
+### 5.3 HIGH: Synthetic Dataset Not Independently Validated
+
+All entity ground truth is synthetically generated by the benchmark scientist (also Claude Sonnet 4.6) rather than drawn from a published, independently verifiable dataset. The ground truth files exist in this repository but were not reviewed by a human before being used as evaluation references.
+
+**Risk:** The "correct" answers and the model's answers may align because they share the same generating process, not because the model is genuinely retrieving information accurately.
+
+**Affected tracks:** All.
+
+### 5.4 HIGH: Single Model Tested
+
+Only Claude Sonnet 4.6 has been tested in the baseline arm. This model has a documented near-perfect recall window well above the tested context lengths. The null result in B1 (100% vs 100%) is expected given this model's capabilities and is not informative about whether Iranti adds value for models with shorter or weaker context windows.
+
+The hypothesis motivating B1 — that context-reading degrades with distractor density — has not been tested in the degradation regime for this model. At N=500 (~28k tokens), the baseline continues at ceiling. The degradation regime for Claude Sonnet 4.6 likely begins somewhere above 100k tokens, consistent with the NIAH literature for frontier models.
+
+**Affected tracks:** B1, B1-large, B1-N500, B4 (baseline arm), B7.
+
+### 5.5 HIGH: B4 iranti_search Failure is Structural, Not Transient
+
+The previous review assessed the B4 failure (Iranti search-based arm: 1/4, 25%) as potentially caused by vector embedding indexing lag for newly written entities. The mechanism investigation (B4-search-mechanism.md) has resolved this:
+
+**The failure is structural.** Two independent deficiencies were confirmed:
+
+1. **No vector similarity is operational for any KB entries.** vectorScore=0 was returned across all searches, for all entity types, including entities written in prior sessions with ample time for indexing. This is not a lag artifact.
+
+2. **The lexical (TF-IDF) component degrades for terms appearing in multiple KB entries.** Terms that appear in only one or two entries receive non-zero lexical scores (e.g., "chen_wei_mit": score 0.02; "OpenAI Research": score 0.02). Terms appearing across many entries score near zero (e.g., "MIT Computer Science" which appears in both alice_chen and chen_wei_mit entries; "affiliation" which appears as a key in every entity).
+
+**Consequence for multi-hop reasoning:** In multi-hop scenarios, the value returned by Hop 1 (e.g., an institution name) is used as the search query for Hop 2. If that institution name appears in multiple KB entries, TF-IDF scores it near zero, and the search returns generic default entries (ticket/cp_t010, cp_t011) rather than the target entity. This failure mode is deterministic: it will reproduce reliably for any attribute value that is not uniquely discriminating in the KB. As the KB grows, more values become non-unique, and the failure mode will affect a larger fraction of multi-hop queries.
+
+**Implication for the B4 result:** The 75 pp differential between baseline (4/4) and Iranti search arm (1/4) reflects a structural limitation of the current iranti_search implementation, not an infrastructure state that can be resolved by waiting. The only reliable multi-hop path in Iranti's current implementation is the oracle arm (entity IDs known in advance, retrieved via iranti_query).
+
+**Revised disposition for B4:** The prior notation "indexing lag hypothesis untested" is retired. The structural finding is confirmed. This finding stands as the most operationally significant performance characterization in the program to date: iranti_search cannot reliably support attribute-value discovery when the queried attribute value is shared by more than one or two KB entries, and vector similarity is not currently active for any entries.
+
+### 5.6 HIGH: B1-N500 Distractor — filip_ghosh
+
+The N=500 baseline trial documented a noteworthy distractor: researcher/filip_ghosh shares alice_chen's publication_count (47) and previous_employer (OpenAI, 2018–2021). This is a two-attribute coincidence that creates genuine false-interference risk at the field level. The baseline model correctly identified alice_chen by combining all four queried attributes (affiliation, publication_count, previous_employer, research_focus), where the full combination is unique to alice_chen.
+
+This trial does not confirm that the model is robust to filip_ghosh-level distractors in general — at n=10 questions with high baseline model capability, this is one observed non-failure. However, it is a methodologically useful design note: future trials at N=1000+ should track distractor co-occurrence density as a predictor of baseline failure onset.
+
+### 5.7 HIGH: B3 C5 — LLM Reads Source Names as Semantic Signals
+
+In B3 condition C5, LLM arbitration rejected a write with higher raw confidence (80 vs. 70) and higher weighted score (68.0 vs. 59.5), citing the existing entry's "more established source." The source names used were literally "b3_trusted_reviewer" and "b3_low_reliability." The LLM read these names as credibility signals.
+
+This means B3 is not purely testing the documented conflict resolution formula — it is simultaneously testing LLM source-name reasoning. The two effects cannot be separated from this trial design. In a real deployment, source name manipulation could be used to influence arbitration outcomes.
+
+### 5.8 MODERATE: B2 Intra-Session Retrieval Presented as Cross-Session
+
+B2's retrieval phase (Session 2 simulation) occurred within the same agent session as the write phase (Session 1). The report correctly notes that true cross-session isolation is demonstrated by the B1 prior-session data (entities written 2026-03-20, retrieved 2026-03-21). However, the B2 core trial is not a clean cross-session test — it is an intra-session write-then-read test. Session boundary isolation is a distinct property from retrieval accuracy and requires a separate controlled protocol.
+
+### 5.9 MODERATE: B5 — No Explicit Forced-Write or Update Primitive Tested
+
+B5 findings show that new sources cannot reliably update facts written by established sources even with higher confidence values. This is a significant operational characteristic. However, the test did not explore whether Iranti exposes an explicit update or supersede operation. If such an operation exists, the B5 findings describe behavior of the conflict-resolution path, not the update path. The absence of a tested forced-write mechanism is a gap in experimental coverage, not necessarily a gap in Iranti capability.
+
+### 5.10 MODERATE: Adversarial Labels Disclosed in B1
+
+In the B1 adversarial condition (N=20+adversarial), the adversarial entries were labeled with verification flags. This reduces their adversarial impact and explains why the model achieved 100% even in this condition. An unlabeled adversarial condition has not been tested. This is also relevant for B1-N500: the filip_ghosh distractor was not labeled as adversarial, making it a more meaningful stress test than the labeled adversarial condition.
+
+### 5.11 MODERATE: B7 Scale Insufficient to Test Degradation
+
+At ~5,500 tokens (~51 turns), B7 is well within Claude Sonnet 4.6's effective recall window. Both arms scoring 10/10 is the expected result. B7 currently establishes only that the Iranti write+query mechanism works correctly for conversational episodic facts, not that it confers an accuracy advantage over context reading. The degradation regime — where context-reading accuracy falls and Iranti exact-lookup maintains performance — requires substantially longer transcripts. Estimates based on the NIAH and MemGPT literature place this regime at 50,000–200,000 tokens for frontier models.
+
+### 5.12 LOW: B6 Single Entity Type per Trial
+
+Both B6 trials used researcher profiles as the input entity type. The contamination pattern may be specific to researcher-profile-shaped input text matching the shape of ticket/cp_t010 and cp_t011 (which are also researcher profiles). Extraction accuracy for structurally dissimilar entity types (e.g., product specs, legal documents, financial records) has not been tested. The severity of the contamination defect may vary across entity types.
+
+---
+
+## 6. Methodological Strength Ranking
+
+Tracks are ranked from strongest to weakest on methodological grounds.
+
+### Strongest
+
+**B5 — Knowledge Update Behavior**
+This track tests a mechanistic property (how the scoring formula interacts with source reliability) rather than accuracy against ground truth. The findings (T1b accepted at gap=10.6, T1 rejected at gap=2.9, LLM "established source" bias, duplicate detection) are about system behavior under specific inputs. These findings are less dependent on sample size for qualitative characterization and less susceptible to self-evaluation bias because the evaluation is primarily observing Iranti's API response, not judging answer quality. The findings are reproducible by re-running the same writes. Confidence is: the documented behavior occurred under these inputs. Claim is narrow.
+
+**B3 — Conflict Resolution**
+Similarly, B3 tests mechanistic conflict-resolution behavior. The formula verification (weighted score calculations matching Iranti responses) is testable and has been confirmed. The C2 failure (high-confidence first write blocks corrections) is a structural property, not a probabilistic finding. The C5 source-name finding is an important emergent behavior observation. The limitation is that n=1 per condition means the LLM arbitration behavior (C3, C4, C5) could vary across runs. The deterministic cases (C1, C2) will reproduce exactly.
+
+**B6 — Text Ingest Pipeline (revised upward for severity of confirmed finding)**
+The contamination finding has been confirmed by a controlled isolation test. The qualitative evidence is now strong: the same wrong values appear across two independent input texts, extracted summaries are verbatim identical to existing KB entries, and the isolation test eliminates the coincidence explanation. The finding is: iranti_ingest does not reliably extract from input text when researcher-profile-shaped KB entries exist. This is the most actionable finding in the program for product teams. Statistical confirmation of the accuracy rate (currently 1/8 across both trials) still requires more trials, but the qualitative characterization is defensible.
+
+### Moderate
+
+**B4 — Multi-hop Reasoning (revised upward for structural confirmation)**
+The structural finding (vectorScore=0 for all entries; TF-IDF degradation for non-unique terms) is mechanistic and reproducible. The mechanism investigation directly tested the failure mode with varied queries and documented the exact pattern. This transforms B4 from a single-trial anomaly into a characterized structural limitation. The quantified differential (−75 pp at n=4) remains statistically weak, but the mechanism finding stands independently of the n=4 count.
+
+**B2 — Cross-Session Persistence**
+The core claim (facts survive across sessions) is supported by both the B2 20/20 same-session retrieval and the B1 cross-session evidence (2026-03-20 → 2026-03-21). The cross-session evidence from B1 is incidental but real: those entities were written by a different agent in a different session and were retrieved successfully. The 20/20 retrieval accuracy is convincing for exact-key lookups. Weaknesses: intra-session vs. cross-session conflation; no baseline comparison with a real memory alternative (RAG); definitional baseline. Note: the contamination risk from ticket/cp_t010/cp_t011 write provenance (Section 5.2) applies here and has not been resolved.
+
+### Weakest
+
+**B1 / B1-large / B1-N500 — Entity Retrieval (null result)**
+The null result (both arms at 100%) is expected and uninformative given the tested scale (N=5 through N=500, max ~28k tokens) versus the model's effective recall window (>100k tokens). No differential has been observed because no differential is expected at this scale. These results are scientifically valid as "no degradation below N=500 entities at ~28k tokens" but cannot support any claim about Iranti improving retrieval because both arms perform identically. The primary gap (testing at degradation-inducing scale, N=1000+, ~130k+ tokens) remains unexecuted.
+
+**B7 — Episodic Memory (null result, scale insufficient)**
+Both arms at 10/10 for a 5,500-token transcript. Same situation as B1 at low N: expected null differential, uninformative about whether Iranti confers advantage. The benchmark framework is correctly designed; the scale needs to increase by 10–40x to enter the regime where baseline degradation is observable.
+
+---
+
+## 7. Additional Trials Required for Publication-Grade Claims
+
+The following specifies what is needed before any specific claim could be defended in a peer-reviewed publication.
+
+### 7.1 For B1 (null result to become a differential result)
+
+- Extend to N=1000 entities (~130,000 tokens) and N=2000 entities (~260,000 tokens) to enter the degradation regime documented in NIAH literature for frontier models
+- Run n≥10 repetitions per question at each N level (minimum; n≥30 preferred)
+- Use an unlabeled adversarial condition; track distractor co-occurrence density as a predictor variable
+- Test at least one smaller or weaker model as baseline (GPT-4o-mini or equivalent) to establish that degradation occurs in a realistic comparative context
+- Lock ground truth before running any baseline; use automated string matching for evaluation
+- Minimum total: approximately 600 evaluated question-answer pairs before statistical claims about the B1 differential are viable
+
+### 7.2 For B2 (persistence)
+
+- Execute a genuinely cross-session protocol: write in session A, terminate the agent, start a new agent session B, retrieve with no context carry-over
+- Compare against a real alternative memory condition (RAG over stored transcripts, or summarization)
+- Run at least n=5 independent session pairs
+- Test at multiple KB sizes to assess whether persistence reliability degrades
+- Resolve write provenance of ticket/cp_t010 and ticket/cp_t011 before relying on B1 IA arm as cross-session evidence
+
+### 7.3 For B3 (conflict resolution)
+
+- Run each condition (C1–C5) n≥20 times to estimate LLM arbitration variance
+- Test conflict resolution for non-affiliation keys (numeric, temporal, complex objects)
+- Test with sources that have learned reliability values (not only default)
+- Test escalation pathway
+- Re-run C5 with source names that are semantically neutral (e.g., "source_a", "source_b") to separate formula behavior from source-name-reading behavior
+- Minimum: ~100 conflict resolution trials across diverse conditions
+
+### 7.4 For B4 (multi-hop)
+
+- The indexing lag mitigation previously specified is no longer the primary path. The structural issues (vectorScore=0; TF-IDF degradation) must be addressed at the implementation level or worked around at the benchmark design level.
+- If vector embeddings become active: re-run the full multi-hop battery and verify vectorScore > 0 before treating results as comparable to the current trials
+- Test iranti_search with entity names included in the query (confirmed to succeed in mechanism tests) to characterize the oracle-name-hint condition separately from the attribute-value discovery condition
+- Expand to n≥30 multi-hop questions across both conditions (search-based and oracle)
+- Minimum: ~120 question-pairs under confirmed-functional search conditions before differential claims are viable
+
+### 7.5 For B5 (update behavior)
+
+- Run each update condition n≥20 times with varied confidence gaps and source combinations
+- Map the full acceptance region: at what confidence gap does each resolution path trigger?
+- Test forced-write / authority-escalation paths if they exist
+- Test source reliability dynamics: how many writes are needed to change resolution behavior?
+- Minimum: ~100 update trials across the parameter space
+
+### 7.6 For B6 (ingest pipeline)
+
+- Run with an empty / isolated KB namespace to confirm whether contamination disappears when no existing KB entries are present
+- Run at least n=20 passages across diverse entity types (not only researcher profiles)
+- Vary KB pre-population levels to measure contamination severity as a function of KB size and KB content shape
+- Compare extracted values against input text using automated extraction validation (not model self-evaluation)
+- Minimum: ~80 passage-key pairs across diverse content types before accuracy claims are viable
+- Note: the primary finding (systematic contamination from cp_t010/cp_t011) is already actionable for Iranti product teams without waiting for the full trial program
+
+### 7.7 For B7 (episodic memory)
+
+- Extend transcript length to 50k, 100k, and 200k tokens using realistic multi-session conversation simulations
+- Test with facts stated at early, middle, and late positions within each length tier to characterize positional decay
+- Introduce distractor turns that reference numerically similar values to the probe facts (e.g., dates within days of the target date)
+- Test with an agent that does not diligently write every fact (simulate realistic write coverage below 100%) to characterize sensitivity to write completeness
+- Run n≥10 repetitions per length tier for each arm
+- Minimum: ~300 question-answer pairs across length tiers before positional decay claims are statistically viable
+
+### 7.8 Cross-cutting requirements for all publication claims
+
+- Ground truth must be locked before any trial execution and stored in a version-controlled file external to the model's context
+- Evaluation must be performed by a process that is independent of the model being evaluated (automated string match, separate judge, or human review)
+- All prompts and system instructions must be documented and version-controlled
+- Iranti instance version must be recorded at trial time
+- Results files must include trial timestamps, session IDs, and Iranti response provenance
+
+---
+
+## 8. Self-Evaluation Bias — Extended Note
+
+The self-evaluation bias present in all baseline arm evaluations (and in portions of the Iranti arm evaluations where the agent judges its own retrieved values) is the single most important methodological weakness in the current corpus. It operates in at least three ways:
+
+1. **Lenient matching**: The model may judge its own answer as correct when a strict string match would fail. For example, "OpenAI Research" vs. "OpenAI" may be judged equivalent by a model that generated both.
+
+2. **Circular ground truth**: The model generated the synthetic entities and the ground truth table. The same model then answered questions about those entities. If the model's internal representation of the entities is consistent (even if wrong relative to the stated ground truth), it will appear accurate.
+
+3. **Document memorization within context**: In B1 baseline, the model reads a document it generated and answers questions about it within the same context window. High accuracy in this condition partly reflects near-perfect in-context recall of recently read text, which is a different capability from the long-context retrieval that NIAH measures. This concern extends to B7 at current scale: the 51-turn transcript is read immediately before answering, making it an in-context recall test rather than a degradation test.
+
+None of these effects can be quantified from the current data. They must be eliminated by experimental design, not corrected for statistically.
+
+---
+
+## 9. B6 Contamination as a Cross-Benchmark Finding
+
+The B6 contamination finding — now confirmed — has implications beyond B6 itself.
+
+The B1 Iranti retrieval arm (prior-session data, trials IA1–IA8) relies on entities ticket/cp_t010 and ticket/cp_t011 that were written to the KB by a prior agent in a prior session (2026-03-20). The B6 isolation test confirms that when the Librarian performs ingest operations on researcher-profile text, it writes values from ticket/cp_t010 and ticket/cp_t011 verbatim — regardless of what the input text says. This pattern is reproducible and specific to these two KB entries.
+
+This raises the question: how were ticket/cp_t010 and ticket/cp_t011 originally written? Two cases:
+
+- **If written via iranti_write (structured writes):** Their values are trustworthy. The B1 IA arm ground truth is valid. The contamination affects only downstream ingest operations, not the original entries.
+- **If written via iranti_ingest:** Their values may themselves be contaminated by whatever was in the KB at the time of that write (which in that session was presumably empty, so contamination risk was lower — but this cannot be confirmed without inspecting the session log).
+
+The provenance of ticket/cp_t010 and ticket/cp_t011 has not been inspected. Until it is, the B1 IA arm results carry an unresolved contamination risk. This is not a blocking finding for all B1 results — the B1-N500 Iranti arm used entities alice_chen and bob_okafor written via confirmed structured writes (iranti_write, source=b1_benchmark_ingest, conf=95), and those results are clean.
+
+**Recommendation:** Inspect the write log for ticket/cp_t010 and ticket/cp_t011. Confirm write method. If ingest was used, re-run the affected B1 IA trials with entities written via verified structured writes only.
+
+---
+
+## 10. Summary Disposition
+
+| Benchmark | Primary finding | Confidence in finding | Ready for publication claim? |
+|-----------|----------------|----------------------|------------------------------|
+| B1 — Entity retrieval, N=5–500 | Null result at N≤500 (~28k tokens); Iranti exact lookup is O(1) relative to KB size | Moderate (expected given model context window; O(1) mechanistic) | No — degradation regime not tested; N=1000+ required |
+| B1-N500 — filip_ghosh distractor | Two-attribute coincidence distractor did not cause baseline failure | Low (n=1 distractor, single trial) | No — informative design note only |
+| B2 — Cross-session persistence | Iranti KB persists across sessions | Moderate (cross-session evidence is incidental but real) | No — protocol does not cleanly isolate session boundaries; cp_t010/cp_t011 provenance unresolved |
+| B3 — Conflict resolution | Deterministic resolution confirmed; C2 limitation documented; LLM arbitration has established-source bias | Moderate (mechanistic; formula verified) | No — n=1 per LLM arbitration condition |
+| B4 — Multi-hop | iranti_search fails at attribute-value discovery due to two confirmed structural defects: vectorScore=0 for all entries; TF-IDF degrades for non-unique terms | Moderate-high (structural finding confirmed by mechanism investigation; reproducible) | No — quantified differential at n=4 too small; mechanism finding is narratively strong but needs more multi-hop trials to quantify operational failure rate |
+| B5 — Knowledge update | New sources cannot reliably update established-source facts; LLM arbitration conservatively favors first writer | Moderate (mechanistic; consistent across conditions) | No — n=1 per condition; update primitive untested |
+| B6 — Ingest pipeline | iranti_ingest does not extract from input text; confirmed to write existing KB entry values verbatim; contamination is systematic and reproducible | High for qualitative finding (two-trial controlled contrast; verbatim match; zero-overlap isolation test) | No — single entity type tested; sample size insufficient for accuracy rate estimate; root cause in Librarian prompt not confirmed |
+| B7 — Episodic memory | Null result at ~5,500 tokens; write+query mechanism confirmed functional for conversational facts | Moderate (expected given scale) | No — degradation regime not tested; 50k–200k tokens required |
+
+**Overall program status:** The current benchmarks have produced a working experimental infrastructure and a set of findings with significantly varying confidence levels. The most important finding is the B6 contamination confirmation: it is a critical defect that is actionable now, is qualitatively well-supported by the controlled isolation test, and affects the reliability of the ingest pipeline broadly. The B4 structural mechanism finding is the second most important: it characterizes a fundamental limitation of iranti_search that will affect any attribute-value discovery use case. Both findings are ready for internal product team communication, though neither meets the statistical threshold for external publication claims. A second wave of trials — focused on scale (B1 N=1000+, B7 50k–200k tokens), confirmation of B6 contamination across entity types and KB states, and production of adequate trial counts for B3/B4/B5 — is the critical path to publishable results.
+
+---
+
+*This memo is a statistical review document only. It does not address the scientific framing, related work, or publication strategy for these results. Those are addressed separately by the paper_author and science_communicator roles.*
