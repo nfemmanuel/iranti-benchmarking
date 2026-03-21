@@ -8,3 +8,5 @@ results/published/*
 !results/published/.gitkeep
 *.log
 .env.iranti.local
+.claude/
+CLAUDE.md
