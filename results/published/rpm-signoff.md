@@ -4,6 +4,8 @@
 **Date:** 2026-03-21
 **RPM:** research_program_manager (benchmark_program_main session)
 **Scope:** B1 through B11, all benchmark tracks
+**Iranti version:** 0.2.12
+**Evaluation model:** Claude Sonnet 4.6 (claude-sonnet-4-6)
 
 ---
 
