@@ -236,11 +236,23 @@ The most plausible explanation is confidence-based ranking: setup facts were wri
 
 This is a design issue. An agent that writes progress facts at lower confidence than setup facts — which is natural, since progress facts represent tentative findings — will systematically underweight precisely the facts that are hardest to re-derive after interruption. A well-designed session persistence strategy should consider assigning higher confidence to in-flight progress state, or using a dedicated episodic key namespace that observe treats with elevated weight.
 
+### 5.2.1 Observe Ranking Is Confidence-Based, Not Query-Relevance-Based
+
+The observe ranking mechanism is confirmed confidence-based, not query-relevance-based. In a follow-up test, a context string explicitly requesting the missing progress facts by name — naming `next_step`, `open_question`, and `partial_result` — produced the same result set as the original neutral context string ("Resuming interrupted session. Was analyzing LLM multi-hop reasoning performance. Need to recover what was being tested and current progress."). Top-N results were the highest-confidence N facts for the entity in both cases.
+
+This is a fundamental design characteristic: observe acts as a confidence-ranked fact retriever, not a relevance-ranked fact retriever. The query context influences entity detection (when auto-detection is active) but does not reorder facts once an entity is resolved. An agent cannot use a more specific context string to surface lower-confidence facts ahead of higher-confidence facts.
+
+Agents requiring the highest-relevance facts from a session (rather than the highest-confidence facts) should use `iranti_query` with explicit key enumeration. That is the only modality that guarantees retrieval of specific named facts regardless of their confidence relative to other facts on the entity.
+
+The practical implication for session recovery design: if progress facts are consistently lower-confidence than setup facts (a natural consequence of writing uncertain findings at lower confidence than established configuration), `iranti_observe` will consistently return setup facts first and progress facts only within remaining cap space. No amount of context specificity will override this ranking.
+
 ### 5.3 Handshake as a Non-Recovery Tool
 
 The handshake result (0/8) is not a failure of Iranti's capabilities — it is a confirmation that handshake is correctly scoped to session initialization rather than task-entity retrieval. The result is documented here specifically to prevent agents from using handshake as a recovery pathway. Any agent that relies on handshake to "pick up where it left off" will find zero task-entity facts and may proceed incorrectly.
 
 The appropriate use of handshake is to establish session context (confirm agent binding, check instance health, retrieve session metadata). Recovery of task-specific facts requires a separate, intentional retrieval call.
+
+A follow-up test with a maximally specific task description — naming all dataset names (HotpotQA), model names (GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro), language pairs, and metrics (exact match, F1) — returned `workingMemory=[]`, identical to a neutral description. Task comprehension is not coupled to entity retrieval in the handshake subsystem. Handshake is an initialization tool; it cannot substitute for explicit `iranti_observe` or `iranti_query` calls in cold recovery scenarios. The specificity of the task description has no effect on what handshake returns.
 
 ### 5.4 iranti_query as a Session Handoff Protocol
 

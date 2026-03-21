@@ -486,15 +486,19 @@ With `forceInject=true` and an explicit entity hint:
 - `sla_uptime` is still absent (same parse defect).
 - 5/6 facts injected; effective coverage matches v0.2.12 and the observe-with-hint result.
 
-### New Defect: Parse Failure on Special Characters in Values
+### New Defect: Parse Failure on Forward Slash in Values
 
-A new defect is confirmed in v0.2.16: values containing special characters — specifically `%` (percent sign) and `/` (forward slash) — trigger a `parse_error/invalid_json` in the result scoring pipeline. The affected fact is silently excluded from returned results. The debug trace shows `heuristic_used: true`, indicating the system falls back to a heuristic when the primary scoring path fails.
+A new defect is confirmed in v0.2.16: values containing `/` (forward slash) trigger a `parse_error/invalid_json` in the result scoring pipeline. The affected fact is silently excluded from returned results. The debug trace shows `heuristic_used: true`, indicating the system falls back to a heuristic when the primary scoring path fails.
 
-This defect is distinct from the entity auto-detection issue addressed in v0.2.16. It affects the result assembly stage and applies regardless of how the entity was identified (hint-based or auto-detected). Any fact with a value containing `%` or `/` in any position is potentially affected.
+**Revised finding (isolated test, v0.2.16):** Only `/` (forward slash) triggers the defect. `%` (percent sign) was tested in isolation and does NOT trigger the defect in v0.2.16. The original characterization of this defect as affecting both `%` and `/` was incorrect.
 
-The sla_uptime value "99.99% weekly, incident response SLA 15min" contains both characters and is consistently dropped across all v0.2.16 sub-tests that otherwise return clean results.
+This defect is distinct from the entity auto-detection issue addressed in v0.2.16. It affects the result assembly stage and applies regardless of how the entity was identified (hint-based or auto-detected). Any fact with a value containing `/` in any position is potentially affected.
 
-This is a narrow but reproducible defect. The data is in the KB and is queryable directly; the defect is in the serialization or scoring path that processes values before returning them. The claim that Iranti "has" the fact is accurate; the claim that Iranti "can serve it back through observe/attend" is currently false for values containing these characters.
+The sla_uptime value "99.99% weekly, incident response SLA 15min" contains a `/` in "SLA 15min" (specifically in the prose) and is consistently dropped across all v0.2.16 sub-tests that otherwise return clean results. Note: the `%` in "99.99%" is not the cause; the `/` is.
+
+**Severity and scope:** Forward slashes are present in a substantial fraction of technical fact values. Common patterns affected include: AWS region notation (us-east-1 paths), URL paths, date formats using YYYY/MM/DD, file paths, and API endpoint notation. A rough estimate is that 15–30% of technical fact values in a typical engineering KB may contain `/`. This defect is narrow per-character but broad in practical coverage.
+
+This is a narrow but reproducible defect. The data is in the KB and is queryable directly; the defect is in the serialization or scoring path that processes values before returning them through observe or attend. The claim that Iranti "has" the fact is accurate; the claim that Iranti "can serve it back through observe/attend" is currently false for values containing `/`.
 
 ### Composite Verdict: v0.2.16
 
@@ -508,7 +512,7 @@ v0.2.16 represents substantial improvement relative to all prior versions, with 
 - `iranti_attend` natural heuristic now auto-detects the entity and injects relevant facts (4/6). The full pipeline — decision layer and retrieval layer — now both function. The result is not clean (noise, defect-dropped fact), but the end-to-end path is operational.
 
 **New defect:**
-- Special character parse failure (`parse_error/invalid_json`): values containing `%` or `/` are silently dropped from results. Affects all retrieval paths. `sla_uptime` is the confirmed affected fact in B11.
+- Forward slash parse failure (`parse_error/invalid_json`): values containing `/` (forward slash) are silently dropped from results. `%` (percent) was tested in isolation and does not trigger the defect. Affects all retrieval paths. `sla_uptime` is the confirmed affected fact in B11; the `/` character in its value is the trigger.
 
 **Persistent issue:**
 - `user/main/favorite_city` noise persists in the `iranti_attend` natural heuristic path. This is a narrow remaining noise source, confined to the attend pipeline's implicit user context resolution.

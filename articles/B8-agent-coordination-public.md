@@ -119,6 +119,18 @@ The honest summary: Iranti's KB can serve as an implicit coordination channel be
 
 ---
 
+---
+
+**Update (v0.2.16, 2026-03-21):** We closed the loop on this test. When different agents use genuinely different identity parameters, Iranti correctly tracks who wrote what. The earlier test was using a naming convention, not a real identity — this one used the real mechanism. Same result (all facts transferred correctly), better attribution tracking.
+
+To explain what changed: in the original test, we labeled writes with `source=agent_alpha` — a text field that names the source. But that's just metadata we attached ourselves. When you ask Iranti "who actually wrote this?", it looks at a different thing entirely: which agent identity was used when the write was issued. In v0.2.16, we used the correct mechanism — the `agent` parameter that tells Iranti "this write is being made by b8_agent_alpha." With that in place, asking Iranti who knows a given fact returns `b8_agent_alpha`, not the session-level identity of whoever ran the benchmark. That's the right answer.
+
+A few other things confirmed in v0.2.16: the knowledge base is globally shared — there's no wall between agents. Agent Alpha can see what Agent Beta wrote, and vice versa. That's by design; the whole coordination pattern depends on it. But if you ever needed to keep agents' working notes private from each other, you'd have to enforce that through naming conventions, not through any built-in agentId barrier.
+
+One technical detail worth flagging: entity names with forward slashes get converted to underscores when stored. This is undocumented. It mostly doesn't matter, but if you're generating entity names programmatically, it's possible to accidentally create two names that look different but map to the same stored entry. Something to be aware of.
+
+---
+
 *This article is part of the Iranti Benchmark Journal, a running record of the Iranti benchmarking program. Each entry documents what was tested, what was found, what wasn't found, and why the interpretation is bounded. Formal technical papers accompany each entry.*
 
 *Full technical writeup: `papers/B8-agent-coordination-paper.md`*

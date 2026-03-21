@@ -1,7 +1,7 @@
 # Multi-Agent Coordination via Shared Persistent Knowledge Base: A Characterization Study of Fidelity Properties
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (v0.2.16 rerun addendum, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Paper Author)
 **Benchmark track:** B8 — Multi-Agent Coordination via Shared KB
 **System under test:** Iranti (installed instance, local)
@@ -299,3 +299,47 @@ See `results/raw/B8-agent-coordination.md`.
 ## Appendix B: Benchmark Definition
 
 See `benchmarks/B8-agent-coordination/benchmark.md`.
+
+---
+
+## Addendum — v0.2.16 Rerun (2026-03-21)
+
+### Version History Table
+
+| Version | Fidelity (write → read) | Attribution mechanism | who_knows result | KB isolation |
+|---------|------------------------|----------------------|-----------------|--------------|
+| v0.2.12 | 6/6 (100%) | source label on iranti_write | benchmark_program_main (wrong) | Global (shared) |
+| v0.2.16 | 5/5 (100%) | agent parameter override on iranti_write | b8_agent_alpha (correct) | Global (shared) |
+
+### Rerun Findings
+
+#### Fidelity: 5/5 with true agentId separation
+
+The v0.2.16 rerun used a redesigned test that enforces genuine agentId separation through the `agent` parameter override on `iranti_write`, rather than the source label convention used in v0.2.12. Writes were issued as agent `b8_agent_alpha`; reads were issued as agent `b8_agent_beta`. All five tested facts were retrieved by `b8_agent_beta` with exact value fidelity.
+
+#### Mechanism correction: agent override, not source label
+
+The v0.2.12 test used `source=agent_alpha` as a naming convention on the write call. `iranti_who_knows` tracked the true session agent (`benchmark_program_main`), not the source label — so attribution returned `benchmark_program_main`, not `agent_alpha`. This was a test design error: source labels are not the mechanism by which Iranti tracks authorship.
+
+The correct mechanism is the `agent` parameter override on `iranti_write`, which overrides the session-level agentId for that specific write. When writes are issued with `agent=b8_agent_alpha`, `iranti_who_knows` returns `b8_agent_alpha` — the correct writer — regardless of which session performed the write. This is a first-class identity mechanism, not a naming convention.
+
+**Implication for prior results:** The v0.2.12 source attribution finding (6/6 source=agent_alpha preserved in retrieval responses) was real — the source field was preserved. But the `iranti_who_knows` result in that version was incorrect because the wrong identity mechanism was used. The v0.2.16 result demonstrates that correct attribution through `iranti_who_knows` requires the agent parameter override.
+
+#### KB is globally shared: no per-agentId read isolation
+
+The knowledge base is globally shared across agentIds. `b8_agent_beta` can read facts written by `b8_agent_alpha` without any explicit access grant. There is no per-agentId read isolation — any agent with access to the instance can read any entity in the KB, regardless of which agentId wrote it. This is a confirmed architectural characteristic, not a bug. The B8 coordination pattern depends on this global visibility.
+
+Agents that require isolation between agentId namespaces (e.g., to prevent one agent from reading another agent's working state) must implement that isolation at the entity-naming or key-naming layer, not at the agentId layer.
+
+#### Entity normalization: slash to underscore
+
+During the v0.2.16 rerun, entity identifiers containing forward slashes were normalized to underscores in the stored entityId (e.g., `agent/alpha` → `agent_alpha`). This behavior is undocumented. It creates a silent collision risk: two distinct entity names that differ only in slash vs. underscore placement will map to the same stored entityId. Agents that construct entity names dynamically should be aware of this normalization and avoid patterns that could produce collisions.
+
+### Composite Verdict: v0.2.16
+
+The v0.2.16 rerun confirms and clarifies the B8 findings:
+
+- **Fidelity:** Confirmed at 5/5 (100%) with true agentId separation via agent parameter override.
+- **Attribution:** `iranti_who_knows` correctly returns the writing agentId when the agent override is used. The v0.2.12 result was incorrect due to use of source labels rather than the agent override mechanism.
+- **KB isolation:** Confirmed globally shared. No per-agentId read boundaries.
+- **New observation:** Entity normalization (slash → underscore) is undocumented and introduces a potential silent collision risk.

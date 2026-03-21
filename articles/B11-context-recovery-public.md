@@ -158,13 +158,15 @@ The system can now take the context text, figure out which project is being refe
 
 This also improves the `iranti_attend` path — the tool that decides whether to inject memory into an AI response automatically. Previously, even though the tool correctly decided *to* inject memory (that was fixed in v0.2.14), it couldn't find the *right* memory because entity detection was broken. Now, with detection working, attend is firing correctly and injecting relevant facts. It's not perfectly clean — more on that below — but the full pipeline now functions end to end.
 
-**One new quirk: special characters cause silent drops.**
+**One new quirk: forward slashes cause silent drops.**
 
-We found a new defect in v0.2.16. If a fact's value contains special characters — specifically percent signs (%) or forward slashes (/) — Iranti silently drops it from retrieval results. The data is there; Iranti just can't serve it back. The technical cause appears to be a parsing failure in the result scoring pipeline when it encounters those characters.
+We found a new defect in v0.2.16. If a fact's value contains a forward slash (`/`), Iranti silently drops it from retrieval results when going through observe or attend. The data is there; Iranti just can't serve it back through those paths. The technical cause appears to be a parsing failure in the result scoring pipeline when it encounters that character.
 
-The affected fact in our test was the SLA uptime entry: "99.99% weekly, incident response SLA 15min." Contains both a `%` and a `/`. It was returned successfully in v0.2.12 but is now silently excluded. We confirmed it still exists in the knowledge base — a direct query retrieves it fine — so this isn't data loss. It's a retrieval pipeline defect, and it's narrow but real.
+**Correction from earlier reports:** We initially reported that both percent signs (`%`) and forward slashes (`/`) trigger this defect. Subsequent isolated testing clarified that only `/` is the problem. `%` is safe — facts with percentage values are returned normally.
 
-If you're storing facts that include measurements, percentages, file paths, URLs, or anything with slashes, they may not come back through observe or attend in v0.2.16. Worth knowing.
+The affected fact in our test was the SLA uptime entry: "99.99% weekly, incident response SLA 15min." The `%` is not the issue; the `/` elsewhere in that value is. It was returned successfully in v0.2.12 but is now silently excluded. We confirmed it still exists in the knowledge base — a direct query retrieves it fine — so this isn't data loss. It's a retrieval pipeline defect, and it's narrow but real.
+
+If you're storing facts that include file paths, URL paths, API endpoint notation, date formats like YYYY/MM/DD, or AWS region paths, they may not come back through observe or attend in v0.2.16. Percentage values are fine. Worth knowing which patterns to watch for.
 
 **On the remaining noise in the natural attend path.**
 
@@ -180,7 +182,8 @@ This noise entry doesn't appear when you use explicit hints or force-injection �
 | Recover facts with a hint | Works (83%) | Works (83%) |
 | Attend: decide to inject | Works (fixed in v0.2.14) | Works |
 | Attend: inject the right facts | Broken (couldn't find entity) | Mostly works |
-| Facts with % or / in value | Works | Silently dropped (new defect) |
+| Facts with / in value | Works | Silently dropped (new defect) |
+| Facts with % in value | Works | Works (% is safe) |
 | Noise entry in auto attend | Present | Present (narrowed to auto path) |
 
 The trajectory is clearly positive. The architectural issue that made hint-free recovery impossible is resolved. What remains is a new narrow defect and some noise in one specific path — much more tractable problems than "the whole retrieval layer doesn't work."

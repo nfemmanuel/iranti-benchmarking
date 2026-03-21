@@ -169,6 +169,26 @@ Every claim Iranti makes publicly needs to be traceable back to evidence that su
 
 ---
 
+## Finally: The Scale Where It Matters
+
+After running this test from the smallest possible haystack — five entities, a few hundred tokens — all the way up through N=500 and N=1000, both approaches kept scoring 100%. The document-reading baseline was fine. Iranti was fine. Nothing separated them.
+
+Then we ran N=5000.
+
+At 5000 entities, the registry document is approximately 276,000 tokens long. Claude Sonnet 4.6 has a context window of roughly 200,000 tokens. The document no longer fits. There is no way to hand the model the full haystack and ask it to find the answer. The test simply cannot be run in that form.
+
+Iranti's lookup doesn't care. The `iranti_query` operation retrieves a fact by its exact address — entity type, entity ID, key. It doesn't matter whether there are 5 entities in the knowledge base or 5,000,000. The retrieval time and accuracy don't change. At N=5000, Iranti returned all four target facts correctly.
+
+Final score: Iranti 4/4. Baseline: not feasible.
+
+That's the gap the entire program was built to find.
+
+**A note on what kind of finding this is.** The baseline didn't score 2/4 or 1/4 — it scored 0/4 because the test couldn't be attempted at all. That's a hard constraint (the model runs out of context window), not gradual degradation of the kind the original Needle-in-a-Haystack research describes. Both findings are real and honest. "Can't read it" is different from "reads it but makes mistakes" — and for a practical system, the distinction matters somewhat less than you might think. In either case, you can't get the answer.
+
+For any application managing a large knowledge store — product catalogs, research databases, customer records, historical logs — this is the condition that actually applies. The question isn't whether the AI is good at reading 20-entity lists. It's what happens when the list is 5,000 entries long. Now we have an answer.
+
+---
+
 *This article is part of the Iranti Benchmark Journal, a running record of the Iranti benchmarking program. Each entry documents what was tested, what was found, what wasn't found, and why the interpretation is bounded. Formal technical papers accompany each entry.*
 
 *Full technical writeup: `papers/B1-entity-retrieval-paper.md`*

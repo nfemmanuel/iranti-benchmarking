@@ -268,6 +268,37 @@ Shaham, U., et al. (2022). SCROLLS: Standardized CompaRison Over Long Language S
 
 ---
 
+## N=5000 Degradation Regime Result (v0.2.16)
+
+### Dataset
+- 5000 entities, ~276,744 tokens
+- Targets: elena_torres (pos 1000, pub_count=83, Vienna Institute for Advanced Computation), marcus_delacroix (pos 3750, pub_count=29, Université de Montréal MILA)
+- Adversarial distractors at positions 1010 and 3760
+- random.seed(7)
+
+### Results
+| Arm | Score | Method |
+|-----|-------|--------|
+| Iranti | 4/4 (100%) | iranti_query (O(1)) |
+| Baseline | 0/4 (not feasible) | Context-reading — haystack exceeds model context window (~200k token limit) |
+
+### Interpretation
+This is the first positive differential recorded in the B1 program. The differential is categorical, not marginal: at N=5000, baseline context-reading is structurally infeasible while Iranti's exact lookup remains fully functional.
+
+The baseline's failure is due to a hard context-window constraint, not degraded accuracy within window. This is a different mechanism from the "gradually degrades" framing seen in the NIAH literature — the model simply cannot receive the full haystack. The distinction is important for honest reporting: this is not evidence that the baseline degrades gracefully, then fails. It is evidence that at this scale the baseline cannot be attempted at all. That is still a real and relevant differential for production use cases involving large knowledge stores.
+
+### Complete B1 scale summary
+| Scale | Haystack tokens | Baseline score | Iranti score | Differential |
+|-------|----------------|---------------|--------------|--------------|
+| N=5 | ~280 | 10/10 | 10/10 | 0 |
+| N=20 | ~1,120 | 10/10 | 10/10 | 0 |
+| N=20+adv | ~1,120 | 10/10 | 10/10 | 0 |
+| N=500 | ~28,000 | 10/10 | 10/10 | 0 |
+| N=1000 | ~56,000 | 10/10 | 10/10 | 0 |
+| N=5000 | ~276,744 | 0/4 (infeasible) | 4/4 | **+4 (categorical)** |
+
+---
+
 ## Appendix A: Dataset
 
 See `benchmarks/B1-entity-retrieval/dataset.md`.
