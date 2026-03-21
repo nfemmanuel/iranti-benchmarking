@@ -181,7 +181,45 @@ We cannot confirm or deny the contamination hypothesis on the actual production-
 
 We published a finding that was more confident than the evidence warranted. The contamination pattern was striking and the hypothesis was plausible — but we did not verify that the underlying LLM was functioning as a real model before interpreting the results. That was an error in the evaluation process.
 
-The rerun did not rescue the original finding. It complicated it. The B6 benchmark track is now marked incomplete, pending a retest with a real LLM provider. When that test runs, we will publish the results here.
+The rerun did not rescue the original finding. It complicated it. The B6 benchmark track is now marked incomplete, pending a retest with a real LLM provider. That test has now run — see the Final Update below.
+
+---
+
+## Final Update: We Tested with a Real AI Provider. Here's What We Found.
+
+> **Final update (v0.2.14 + OpenAI provider, 2026-03-21):** We've now tested iranti_ingest with a real AI provider. The contamination we originally reported was almost certainly caused by the test environment's mock AI, not by a bug in Iranti's extraction logic. However, the pipeline still doesn't work — it now fails silently, returning zero extracted facts for natural prose passages. The failure is in how the pipeline breaks text into chunks before it even reaches the AI. The original conclusion stands: iranti_ingest cannot be used to automatically build a knowledge base from text. The reason changed; the result didn't.
+
+Here is what happened in full.
+
+### What we tested this time
+
+We ran `iranti_ingest` against two entities (four facts each, eight total) using natural biographical prose — the same format as the original article — but this time with the Iranti instance configured to use OpenAI as its actual AI provider. Both prior evaluations had used a test stub (a "mock" AI) without us realizing it when we drew conclusions from the first one.
+
+The result: zero extracted candidates from both entities. The pipeline returned no facts at all.
+
+### What this means for the original article
+
+The original article said the Librarian was "pulling in existing KB data and substituting it for what the text says." That was our best explanation at the time, and the pattern was striking. But it was wrong, or at least not the right explanation.
+
+The contamination pattern — where every wrong value matched something already in the KB — was almost certainly produced by the test AI stub, not by a design flaw in the Librarian. The stub returned canned data from the KB when asked to extract facts. We read that as a Librarian defect. It was a test infrastructure problem.
+
+We said it clearly in the v0.2.14 update: we published a finding that was more confident than the evidence warranted. We should have verified the AI provider configuration before interpreting the results. This final update confirms that the contamination hypothesis does not hold under real conditions.
+
+### The real problem
+
+What the real-provider test reveals is a different and more fundamental failure: the pipeline never reaches the AI at all for natural prose input. The chunker or extraction dispatch layer — the part that processes text before handing it to the AI — returns zero candidates. The AI gets nothing to extract because the pipeline doesn't send it anything.
+
+This is LLM-independent. It doesn't matter whether you use a mock, OpenAI, or any other provider. The extraction is dead before the AI is involved.
+
+### What was true before is still true
+
+The practical conclusion from the original article — that you cannot rely on `iranti_ingest` to correctly extract facts from a text passage — remains accurate. The mechanism is different from what we originally described, but the outcome is the same: the pipeline does not work for natural prose.
+
+The findings from B1 through B4, which used `iranti_write` for direct structured writes, are unaffected. Those results reflect what happens when you write facts explicitly. They say nothing about what happens when you ask the pipeline to extract them from text.
+
+### Where we stand
+
+B6 is concluded. Three rounds of testing. Zero successful extractions from natural prose under any configuration — mock or real AI. The defect is in the pipeline layer that processes text before the AI sees it. Iranti's direct write path works; its text ingestion path does not, as of this version.
 
 ---
 

@@ -388,3 +388,22 @@ v0.2.14 represents partial improvement relative to v0.2.12:
 - Recovery rates (80% with hint/forceInject) are nominally lower than v0.2.12 (83%), but this appears to reflect noise slot competition rather than capability regression.
 
 The system is closer to end-to-end context recovery than it was in v0.2.12, but one critical layer (entity auto-detection) must still be repaired before natural-heuristic attend produces correct output.
+
+---
+
+## Addendum 2 — Real LLM Provider Confirmation (OpenAI, v0.2.14)
+
+Retested iranti_attend and iranti_observe auto-detection with LLM_PROVIDER=openai.
+
+### iranti_attend classifier
+Confirmed: shouldInject=true, method=llm, confidence=0.93. Identical to v0.2.14 mock result.
+**The v0.2.14 classifier fix is genuine production behavior, not a mock coincidence.**
+
+### iranti_observe auto-detection
+Confirmed: detectedCandidates=0. Identical to all prior runs.
+**Auto-detection failure is architectural — not LLM-dependent. The resolution pipeline does not improve with a real provider.**
+
+### Implication
+The two-layer decomposition holds:
+- Layer 1 (should inject?): Fixed in v0.2.14. Works under both mock and real providers.
+- Layer 2 (what to inject?): Broken due to auto-detection failure. Architectural, not fixable via provider swap.

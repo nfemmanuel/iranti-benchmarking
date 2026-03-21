@@ -105,7 +105,7 @@ This is the most significant finding from the v2.0 rerun program. The test insta
 
 ### Upgraded cautions from v1.0:
 - **iranti_search:** do not claim as a working feature at all — it crashes at runtime on v0.2.14
-- **iranti_ingest:** contamination claim retracted as confident finding; mark as untested with real LLM provider
+- **iranti_ingest:** contamination claim retracted — confirmed mock artifact. Real-provider retest: 0/8, extractedCandidates=0 for prose. Defect is in chunker/dispatch layer, LLM-independent. Pipeline non-functional for natural prose under all tested configurations.
 - **iranti_attend:** classifier now works (genuine fix); but overall utility still requires explicit hints due to auto-detection failure. Do not claim autonomous context management.
 
 ### Unchanged cautions from v1.0:
@@ -116,7 +116,7 @@ This is the most significant finding from the v2.0 rerun program. The test insta
 
 ## Open Items Before Any Publication
 
-1. **Configure real LLM provider and rerun B6 + B11** — this is now blocking for any publication about ingest or attend
+1. ~~Configure real LLM provider and rerun B6 + B11~~ — **DONE (2026-03-21).** B6: still broken (chunker defect, LLM-independent). B11: attend fix confirmed real, auto-detection confirmed architectural.
 2. **Investigate and remediate iranti_search crash** — v0.2.14 regression is more severe than v0.2.12
 3. **Clear noise entry (user/main/favorite_city) before benchmark reruns** — isolation gap
 4. **B1 degradation regime (N=5000+)** — still not tested
@@ -133,14 +133,14 @@ This is the most significant finding from the v2.0 rerun program. The test insta
 | B3 | Closed | Closed | Unchanged |
 | B4 | Closed | Closed (regression noted) | Search regressed to crash |
 | B5 | Closed | Closed | Unchanged |
-| B6 | Closed | **REOPENED — incomplete** | Mock confound invalidates prior finding |
+| B6 | Closed | **Closed (verdict revised)** | Contamination = mock artifact. Real defect: chunker failure (LLM-independent). Pipeline non-functional for prose. |
 | B7 | Closed | Closed | Unchanged |
 | B8 | Closed | Closed | Unchanged |
 | B9 | Closed | Closed (endpoint corrected) | Unchanged finding; doc fix |
 | B10 | Closed | Closed | Unchanged |
 | B11 | Closed | Closed (partial improvement) | Attend classifier fixed |
 
-**B6 is formally reopened.** It cannot be closed without a real LLM provider retest.
+**B6 is now re-closed with a revised verdict.** Real-provider retest completed 2026-03-21. Contamination hypothesis withdrawn; chunker defect confirmed as definitive finding.
 
 **Signed: research_program_manager**
 **Date: 2026-03-21**

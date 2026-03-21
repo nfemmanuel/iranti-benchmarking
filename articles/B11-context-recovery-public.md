@@ -144,6 +144,8 @@ There's also a new observation worth flagging: an irrelevant entry (`user/main/f
 
 The short version: partial credit. One layer fixed, one layer still broken. See the formal paper addendum for the full sub-test breakdown and version comparison table.
 
+> **Confirmed (OpenAI provider, 2026-03-21):** We retested with a real AI provider. The iranti_attend improvement is real — not a testing artifact. The tool now correctly decides when to activate memory. The remaining gap (finding the *right* memory automatically) is a deeper architectural issue that a better AI provider can't fix on its own. Both findings are now confirmed against a real provider.
+
 ---
 
 *This report is part of the Iranti Benchmarking Program. All results are from controlled evaluations using the installed Iranti instance. Raw results and full methodology are available in the accompanying technical paper.*
