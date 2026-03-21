@@ -1,0 +1,59 @@
+# Benchmark B9: Entity Relationship Graph (iranti_relate)
+
+**Family:** Knowledge graph / relational structure
+**Inspired by:** Knowledge graph benchmarks (FB15k, YAGO); Neo4j graph query tests; RDF triple stores
+**Executed:** 2026-03-21
+**Status:** Complete — first execution
+
+---
+
+## 1. What This Benchmark Measures
+
+Whether Iranti's `iranti_relate` capability can store typed relationship edges between entities and whether those edges are subsequently queryable by agents.
+
+This tests:
+- **Write fidelity**: Are relationship edges created successfully with properties?
+- **Discoverability**: Can agents find relationship edges via iranti_search?
+- **Agent interface completeness**: Is the relationship graph readable through MCP tools?
+
+---
+
+## 2. Setup
+
+5 directed relationship edges written between researcher entities:
+
+| From | Type | To | Properties |
+|------|------|----|------------|
+| researcher/alice_chen | CO_AUTHORED_WITH | researcher/bob_okafor | ACL 2024 paper |
+| researcher/alice_chen | COLLABORATES_WITH | researcher/chen_wei_mit | MIT NLP Lab project |
+| researcher/alice_chen | FORMERLY_COLLEAGUES_WITH | researcher/lena_gross | OpenAI overlap 2019-2021 |
+| researcher/bob_okafor | COLLABORATES_WITH | researcher/marcus_lin | Stanford Embodied AI |
+| researcher/lena_gross | CITES_WORK_OF | researcher/aisha_okonkwo | RLHF citing AI safety |
+
+---
+
+## 3. Results
+
+| Test | Result |
+|------|--------|
+| All 5 edges created | ✓ (ok=true for all) |
+| Properties stored | ✓ (JSON accepted) |
+| iranti_search returns edges | ✗ (relationships not in search index) |
+| MCP query tool available | ✗ (no iranti_query_relationship tool) |
+
+---
+
+## 4. Key Finding: Write-Only Relationship Graph for Agents
+
+iranti_relate successfully writes relationship edges. However, agents have no MCP tool to read them back. The relationships table is not indexed by iranti_search. The control-plane REST API (GET /relationships) can retrieve edges, but this endpoint is not accessible as an MCP tool.
+
+The relationship graph is currently a write-only store from the agent's perspective. This limits its utility for agent-accessible graph reasoning.
+
+---
+
+## 5. Threats to Validity
+
+1. The REST API (GET /relationships) may be usable if agents had HTTP access — not tested
+2. iranti_search may index relationship data in future versions — current test is version-specific
+3. Only write success was confirmed; edge deduplication behavior is not tested
+4. Relationship direction and type conventions are caller-defined with no schema enforcement
