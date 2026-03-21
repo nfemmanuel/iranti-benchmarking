@@ -288,3 +288,97 @@ iranti_search now crashes before returning results (spread/iterator error; pgvec
 | B9 | Write-only finding reproducible; retrieval side untested | Unchanged (iranti_search crash noted) | Unchanged |
 | B11 attend | Not reproducible (classification_parse_failed; n=1) | Classifier fix observed; reproducibility of fix under real LLM untested | Partial improvement — mock confound still applies |
 | B11 observe | Not reproducible (auto-detection failure; mechanism unknown) | Unchanged (detectedCandidates=0) | Unchanged — mock confound may explain failure |
+
+---
+
+## v0.2.16 Rerun Audit — 2026-03-21
+
+### 1. Three Improvements to Reproducibility Posture
+
+**Improvement 1: LLM_PROVIDER=openai confirmed — mock confound resolved**
+
+The most consequential reproducibility risk from the v0.2.14 audit has been resolved. The Iranti instance under test in v0.2.16 is confirmed to use LLM_PROVIDER=openai (real production provider). This eliminates the mock confound that applied to B6, B11-attend, and B11-observe in all prior versions. Findings from v0.2.16 for these tracks can now be attributed to the production pipeline rather than to mock LLM behavior. The v0.2.14 audit recommendation — "configure the instance with a real LLM provider before publishing conclusions about ingest, attend, or observe findings" — is satisfied. This is a prerequisite clearance, not a statistical improvement: all other sample size and self-evaluation limitations remain in force.
+
+**Improvement 2: B6 contamination hypothesis resolved — clean baseline established**
+
+The v0.2.12 contamination finding (ingest writes KB entry values verbatim rather than extracting from input text) is confirmed as a mock LLM artifact. Under LLM_PROVIDER=openai, B6 produces 8/8 correct extractions across two prose entities with no contamination. The controlled isolation contrast from v0.2.12 (diana_voronova vs. kai_bergstrom) retains its internal validity as a test of the mock pipeline's behavior, but cannot be attributed to the production Librarian. The B6 audit risk changes from "confirmed critical defect" to "mock-specific artifact — production pipeline functional." The B1 contamination propagation risk (ticket/cp_t010/cp_t011 write provenance) was predicated on the contamination being a production-pipeline defect; that chain is now materially weakened, though write provenance remains unverified.
+
+Sub-key decomposition (compound facts split into multiple sub-keys) is a newly observed ingest behavior that must be documented in the benchmark protocol. It is not a defect but creates a scoring ambiguity: expected-key-name matching fails when ingest produces decomposed sub-keys. Future B6 replication attempts must specify whether evaluation is by exact key-name match or by value recovery in any key.
+
+**Improvement 3: iranti_related and iranti_related_deep documented as new tools requiring protocol**
+
+B9 now uses two MCP tools (iranti_related, iranti_related_deep) that did not exist in v0.2.14. These tools are functional and read relationship edges correctly. Their absence in prior versions was the source of the "write-only" audit finding for B9. For reproducibility purposes: any replication of B9 on v0.2.12 or v0.2.14 will not have access to these tools and cannot replicate the retrieval arm. The benchmark protocol for B9 must document the minimum Iranti version required (v0.2.16 or later) and must specify that iranti_related_deep has no filter parameter — client-side filtering is required in the replication protocol. These are new behavioral contracts that have not yet been formally documented in B9's benchmark spec.
+
+### 2. Persistent Risks
+
+**Persistent risk 1 — CRITICAL: Self-evaluation bias (C1, unchanged)**
+
+The same model (Claude Sonnet 4.6) continues to generate synthetic ground truth, execute benchmark arms, and evaluate correctness of its own outputs. This is the unchanged C1 risk from the original audit and the v0.2.14 update. No independent evaluation mechanism has been implemented. This risk is unresolved and continues to be blocking for all external publication claims. It is not addressable within v0.2.16 findings; it requires experimental redesign.
+
+**Persistent risk 2 — HIGH: KB state accumulates across sessions; noise entry persists**
+
+The user/main/favorite_city entry (confidence 92), first identified in the v0.2.14 audit as a session memory entry written by Iranti's own infrastructure, continues to occupy retrieval result slots in v0.2.16. It appears in the attend natural condition (B11), consuming one slot that should be occupied by a benchmark-relevant entity. The noise entry persists across all three version upgrades tested (v0.2.12 through v0.2.16), confirming that it is not automatically cleared by version upgrade.
+
+Reproducibility implications:
+- A replication run on a fresh instance will not have this entry and may produce different attend/observe scores.
+- A replication run on this specific instance after additional sessions may have more infrastructure-written entries, producing further score degradation.
+- The KB state at the start of each trial is not fully documented. Infrastructure-written entries are not recorded in trial records alongside benchmark-written entries.
+
+This risk has not worsened since v0.2.14 but also has not been addressed. Benchmark isolation from infrastructure writes remains incomplete.
+
+**Persistent risk 3 — HIGH: Special character parse failure creates silent fact exclusion**
+
+A new defect identified in v0.2.16 B11: values containing "%" or "/" characters trigger parse_error or invalid_json during attend/observe result scoring, causing those values to be silently excluded from the scored set. This is a systematic reproducibility risk with the following properties:
+
+- The failure is silent: a trial that encounters parse errors will appear to have a lower-than-expected number of recovered facts without any error flag in the trial record.
+- The failure is fact-content-dependent: replication runs that use different fact values (without special characters) will produce different scores, creating a spurious apparent improvement even if no functional change occurred.
+- The affected value class is broad: percentage metrics (99.9%), file paths (/usr/local/config), URLs (https://...), ratio expressions (4:1), version strings (v2.0/stable), and SLA-format values ("99.9% / 4h SLA") are all representative.
+- The defect has not been confirmed fixed in v0.2.16. It is an open bug at the time of this audit.
+
+Required protocol response: all benchmark fact sets must prospectively document which values contain special characters. Trial records must distinguish parse_error exclusions from accuracy failures. Scores from trials with parse errors must be reported as "n recovered / m attempted, k excluded by parse error" rather than as a single accuracy rate. Until this is enforced, B11 scores and any future track using observe/attend scoring are not comparable across runs.
+
+**Persistent risk 4 — MODERATE: B12 and B13 are single-run new tracks — not yet replicated**
+
+B12 (session recovery) and B13 (upgrade safety) each have a single execution run in v0.2.16. Their findings are directional existence proofs, not characterized performance rates:
+- B12's 5/8 for observe-with-hint and 0/8 for handshake are based on one trial each. The 5/8 result in particular — which reflects a meaningful capability gradient (setup facts recovered, progress facts not) — should be replicated to confirm the pattern holds across different session content types and write volumes.
+- B13's 3/3 durability confirmation is an existence proof that upgrade did not corrupt KB state in this instance. It does not characterize the failure probability of KB corruption under upgrade.
+
+Neither track has been replicated, no variance estimate exists, and the trial protocol is not yet formalized in a benchmark spec document. These tracks carry single-run risk in addition to all cross-cutting risks (self-evaluation, KB state accumulation, no prompt versioning).
+
+### 3. Resolved Risks from Prior Audit
+
+**Mock LLM confound: RESOLVED**
+
+Status in v0.2.14 audit: CRITICAL — LLM_PROVIDER=mock throughout entire benchmarking program; all LLM-dependent subsystems (iranti_ingest, iranti_attend, iranti_observe) may be testing mock behavior rather than production behavior.
+
+Resolution in v0.2.16: LLM_PROVIDER=openai confirmed. B6 8/8 under real provider. B11 observe auto-detection fixed and functional. B11 attend scoring improved. The mock confound no longer applies to v0.2.16 trials.
+
+Residual: v0.2.12 and v0.2.14 trial records for B6, B11-attend, and B11-observe remain potentially confounded by mock behavior and cannot be retroactively cleaned. They should be treated as version-specific observations, not as characterizations of the production pipeline.
+
+**B9 write-only finding: RESOLVED**
+
+Status in v0.2.14 audit: HIGH — no MCP retrieval tool existed for relationship edges; B9 was a write-only demonstration.
+
+Resolution in v0.2.16: iranti_related and iranti_related_deep are present and functional. 4/4 edges readable. Depth=2 traversal confirmed. B9 is now a complete two-sided benchmark. The write-only finding is retired.
+
+**iranti_search runtime crash: RESOLVED**
+
+Status in v0.2.14 audit: HIGH — iranti_search crashes before returning results (spread/iterator error; pgvector unreachable); blocks B4 and B9 replication.
+
+Resolution in v0.2.16: crash is fixed. iranti_search returns results with non-zero vectorScore (0.35–0.74). pgvector appears operational. B4 search-based arm is now partially functional (direct attribute queries work; semantic paraphrase queries still fail). The crash no longer blocks replication attempts.
+
+Residual: the semantic paraphrase failure in B4 is an open capability limitation, not a crash. It is a reproducibility risk of a different kind: future replication runs must use the same query formulation conventions (direct attribute terms rather than paraphrased descriptions) to obtain comparable results.
+
+### 4. Updated Disposition Table
+
+| Benchmark | v0.2.14 reproducibility status | v0.2.16 change | Updated status |
+|-----------|-------------------------------|----------------|----------------|
+| B4 | Crash blocks replication | Crash fixed; vectorScore active; direct attribute queries functional; paraphrase still fails | Partial — replication feasible for direct-attribute condition; paraphrase condition not replicable as successful |
+| B6 | Mock confound blocks production interpretation | Real LLM provider confirmed; 8/8 clean extraction; sub-key decomposition behavior documented | Improved — production baseline established; n=8 single entity type; sub-key counting convention not yet standardized |
+| B9 | Write-only — no retrieval tool | iranti_related and iranti_related_deep functional; 4/4 edges | Substantially improved — write-only risk retired; new tools require version-gating in protocol |
+| B11 observe | Mock confound; detectedCandidates=0 | Auto-detection fixed under real provider; 5/6 with hint; special char parse defect | Improved — production behavior now observable; parse defect is new open risk |
+| B11 attend | Mock confound; classifier fixed but untested under real LLM | 4/6 natural, 5/6 forceInject; noise entry persists; parse defect | Improved — real-provider results in hand; persistent risks (noise, parse defect) apply |
+| B12 | New track | 0/8 baseline, 5/8 observe-hint, 8/8 explicit query, 0/8 handshake | New — single run; not yet replicated; capability gradient finding is directional |
+| B13 | New track | Cross-version durability confirmed; API stable; 3/3 write/read | New — existence proof only; not yet replicated |
+
+*This audit section documents the reproducibility posture as of v0.2.16. The three resolved risks represent genuine improvements to the program's evidential foundation. The four persistent risks — self-evaluation bias, KB state accumulation, special character parse failures, and unreplicated new tracks — remain blocking for any external publication claim and should be addressed in the next experimental cycle.*

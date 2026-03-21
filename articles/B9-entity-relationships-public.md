@@ -138,9 +138,35 @@ The B9 finding stands apart from the B4 finding: B4's search failure may be an i
 
 ---
 
+**Update (v0.2.14, 2026-03-21):** This finding is unchanged in v0.2.14. Relationship writes still succeed; agent-accessible relationship reads still do not exist. One additional note: `iranti_search` now crashes with a runtime error when called in conditions similar to the B9 search arm, rather than returning zero results as it did in v0.2.12. The substantive finding is the same — relationships are not indexed and not retrievable through the MCP interface — but the failure mode has become noisier. The formal paper also corrects an endpoint notation error from v0.2.12: the working REST path is `/kb/related/{entityType}/{entityId}`, not `/relationships` as previously stated. See the formal paper addendum for the full version comparison table.
+
 ---
 
-**Update (v0.2.14, 2026-03-21):** This finding is unchanged in v0.2.14. Relationship writes still succeed; agent-accessible relationship reads still do not exist. One additional note: `iranti_search` now crashes with a runtime error when called in conditions similar to the B9 search arm, rather than returning zero results as it did in v0.2.12. The substantive finding is the same — relationships are not indexed and not retrievable through the MCP interface — but the failure mode has become noisier. The formal paper also corrects an endpoint notation error from v0.2.12: the working REST path is `/kb/related/{entityType}/{entityId}`, not `/relationships` as previously stated. See the formal paper addendum for the full version comparison table.
+## Update: v0.2.16 — The Relationship Graph Is Now Readable
+
+The gap we identified in this article — that agents could write relationships but never read them back — is closed in v0.2.16.
+
+Iranti added two new tools to the MCP interface: `iranti_related` and `iranti_related_deep`. These are the read side of the relationship graph that was missing in all prior versions.
+
+**`iranti_related`** answers the most basic question: given an entity, what relationships does it have? It returns all edges where the entity appears as source or target — both outbound and inbound — with the relationship type, properties, and a direction field. If Alice Chen co-authored with Bob Okafor and Lena Gross was formerly colleagues with Alice Chen, one call returns both edges.
+
+**`iranti_related_deep`** traverses the graph outward. With depth set to 2, it follows edges from the root entity to its neighbors, then follows edges from each neighbor in turn, collecting everything it encounters. For a four-node graph we tested, depth-2 traversal returned 8 edges. Cycle handling works — it does not loop forever if the graph contains cycles.
+
+You can now ask "who does this researcher collaborate with?" and get an answer. You can ask "who is in Alice Chen's collaboration network two hops out?" and traverse the graph to find out.
+
+Two limitations are worth knowing. First, there is no filter parameter — you cannot say "return only CO_AUTHORED_WITH edges" in the tool call itself. You get all edge types back and filter them yourself if needed. Second, the deep traversal returns a flat list with no hop-depth label per edge. You can figure out which edges are first-hop vs. second-hop from the data, but the tool does not label them for you.
+
+These limitations are real but minor. The core capability is there and it works.
+
+**The version history in one table:**
+
+| Version | Write | Read (MCP) | Depth traversal |
+|---------|-------|-----------|----------------|
+| 0.2.12 | Works | None | None |
+| 0.2.14 | Works | None | None |
+| 0.2.16 | Works | iranti_related + iranti_related_deep | Yes (depth=2 confirmed) |
+
+The gap is closed. This closes the finding we reported across all prior versions: the write-only relationship graph problem no longer exists in v0.2.16. B9 is concluded as a positive finding.
 
 ---
 

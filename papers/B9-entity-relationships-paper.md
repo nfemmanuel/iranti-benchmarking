@@ -1,7 +1,7 @@
 # Write-Only Relationship Graph: Evaluating Iranti's Entity Relationship Capability Against Knowledge Graph Standards
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.2 (v0.2.14 rerun addendum, 2026-03-21)
+**Version:** 0.3 (v0.2.16 rerun addendum added, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B9 — Entity Relationship Graph (iranti_relate)
 **Model under test:** Iranti (installed instance, local) — iranti_relate write arm and iranti_search retrieval arm
@@ -347,3 +347,63 @@ The B9 benchmark was rerun against Iranti v0.2.14 to determine whether the write
 ### Verdict
 
 The core B9 finding is unchanged: `iranti_relate` provides write-only access to the relationship graph for agents using the standard MCP interface. v0.2.14 introduces a search surface regression (crash instead of empty results) but does not address the underlying interface gap. The endpoint notation error from v0.2.12 is corrected here.
+
+---
+
+## Addendum 2: v0.2.16 Rerun (2026-03-21)
+
+### Version History (Revised)
+
+| Version | Write | Read (MCP) | Depth traversal | iranti_search | Verdict |
+|---------|-------|-----------|----------------|--------------|---------|
+| 0.2.12 | 5/5 ok | None | None | Returns 0 edges (knowledge_base only) | Write-only |
+| 0.2.14 | 3/3 ok (subset) | None | None | Runtime crash | Write-only; search regression |
+| 0.2.16 | ok | iranti_related + iranti_related_deep | Yes (depth=2 confirmed) | Returns empty (no crash) | Positive — read interface added |
+
+### What Was Tested
+
+The B9 benchmark was rerun against Iranti v0.2.16 to determine whether the write-only finding had changed. The rerun was initiated specifically because v0.2.16 introduced two new MCP tools: `iranti_related` and `iranti_related_deep`.
+
+### New MCP Tools: iranti_related and iranti_related_deep
+
+**`iranti_related(entityType, entityId)`**
+
+Returns all relationship edges where the given entity is a participant. The return structure includes, for each edge: `source`, `target`, `type`, `properties`, and a `direction` field indicating whether the edge is outbound (entity is source) or inbound (entity is target). The tool is bidirectional by default — it returns both outbound and inbound edges from the query entity.
+
+Example call: `iranti_related("researcher", "alice_chen")`
+
+Example return (abbreviated):
+```json
+[
+  {"source": "researcher/alice_chen", "target": "researcher/bob_okafor",
+   "type": "CO_AUTHORED_WITH", "properties": {...}, "direction": "outbound"},
+  {"source": "researcher/lena_gross", "target": "researcher/alice_chen",
+   "type": "FORMERLY_COLLEAGUES_WITH", "properties": {...}, "direction": "inbound"}
+]
+```
+
+**`iranti_related_deep(entityType, entityId, depth)`**
+
+Traverses the relationship graph to the specified depth. With `depth=2`, the tool follows outbound and inbound edges from the root entity, then follows edges from each neighbor, collecting all edges encountered within two hops. The result is a flat list of edges; hop depth is not labeled per edge in the returned structure.
+
+For a 4-node test graph with edges connecting the root entity to three neighbors, and one additional edge between two neighbors, `iranti_related_deep(depth=2)` returned 8 edges. Cycle handling works correctly: the traversal does not enter infinite expansion when cycles exist in the graph.
+
+### Limitations Identified in v0.2.16
+
+**No `relationshipType` filter parameter.** Neither `iranti_related` nor `iranti_related_deep` accepts a filter argument to restrict results to a specific predicate type (e.g., return only CO_AUTHORED_WITH edges). Filtering by relationship type requires client-side processing: retrieve all edges, then filter locally. For large graphs with many edge types, this increases data transfer and requires the calling agent to implement filtering logic.
+
+**`iranti_related_deep` returns a flat list without hop-depth labels.** The result from a depth-2 traversal does not indicate whether each edge was encountered at hop 1 or hop 2. An agent that needs to distinguish first-degree from second-degree connections must reconstruct hop depth from the edge data (by checking whether source or target is the root entity for hop 1, and all others for hop 2). This is possible but not directly supported by the return structure.
+
+**`iranti_search` no longer crashes but returns empty results.** The runtime crash observed in v0.2.14 is fixed in v0.2.16. Calling `iranti_search` against relationship-adjacent queries returns gracefully with empty or unrelated results, matching the behavior observed in v0.2.12. This is a regression recovery: the crash is gone, but relationship data remains outside the search index. The correct tool for relationship queries is now `iranti_related`, not `iranti_search`.
+
+### Assessment
+
+The write-only finding from v0.2.12 and v0.2.14 is resolved in v0.2.16. Two functional read tools now exist at the MCP interface level. Agents can:
+
+- Query all edges connected to a given entity (inbound and outbound), via `iranti_related`
+- Traverse the graph multi-hop to depth=2, via `iranti_related_deep`
+- Verify that edges written with `iranti_relate` are stored and retrievable
+
+The limitations (no filter parameter, flat return from deep traversal) are design constraints that may warrant future work but do not prevent basic graph traversal. For the primary B9 use case — "what relationships does entity X have?" — the capability now exists and functions correctly.
+
+The B9 benchmark track is concluded with a positive finding: the relationship graph is now readable in v0.2.16.

@@ -223,6 +223,26 @@ B6 is concluded. Three rounds of testing. Zero successful extractions from natur
 
 ---
 
+## Final Update: v0.2.16 — The Pipeline Is Fixed
+
+We ran `iranti_ingest` one more time, against Iranti v0.2.16, with two complete researcher passages and the real OpenAI provider. Here is what we found.
+
+It works.
+
+Both passages produced non-zero extracted candidate counts (20 and 17, respectively). All four canonical facts were extracted correctly from each passage. The values match the input text. There is no contamination — the extracted facts come from the passages we submitted, not from prior KB entries.
+
+Eight keys written. Eight correct. Zero errors.
+
+The story has come full circle. The feature we thought was broken in three different ways — contamination, then chunker failure, then complete extraction silence — now works cleanly under a real AI provider. The defect was in the pipeline layer that broke text into chunks before passing it to the AI. That layer has been fixed between v0.2.14 and v0.2.16.
+
+One behavioral note worth knowing: the Librarian decomposes compound facts. When we submitted "Research Scientist at Google Brain from 2016 to 2018," the pipeline did not store that as a single string under `previous_employer`. It stored it as structured sub-keys: `previous_employer.employer`, `previous_employer.employer_location`, `previous_employer.employment_start_year`, `previous_employer.employment_end_year`. The values are correct. But if you later query `previous_employer` as a single key, you will get nothing — you need to query the sub-keys. This is a design behavior to be aware of if you mix ingest-written entries with structured-write entries in the same knowledge base.
+
+The practical conclusion: you can use `iranti_ingest` to build a knowledge base from text in v0.2.16. Give it a researcher profile, a meeting note, or a biographical paragraph, and it will extract the facts and write them. The extraction is accurate and the values come from the text you provide, not from other entries in the KB.
+
+Three rounds of testing. The first two produced results we had to walk back. The third closes it out with a clean positive finding. B6 is done.
+
+---
+
 *This article is part of the Iranti Benchmark Journal, a running record of the Iranti benchmarking program. Each entry documents what was tested, what was found, what wasn't found, and why the interpretation is bounded. Formal technical papers accompany each entry.*
 
 *Full technical writeup: `papers/B6-ingest-pipeline-paper.md`*

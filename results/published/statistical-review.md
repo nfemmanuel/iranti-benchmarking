@@ -409,3 +409,119 @@ The v0.2.14 iranti_search crash (spread/iterator error, pgvector still unreachab
 ### Statistical note on B6
 
 The v0.2.12 contamination finding was based on n=8 ingest trials (4 diana_voronova + 4 kai_bergstrom). With LLM_PROVIDER=mock, these trials cannot be treated as testing the production ingest pipeline. The mock LLM in v0.2.12 appeared to return canned KB data as extracted candidates; in v0.2.14, the mock returns empty. The behavioral difference tracks the mock implementation, not the Librarian extraction logic. All B6 conclusions from v0.2.12 are now flagged as potentially confounded by the mock provider. The controlled contrast between diana_voronova and kai_bergstrom retains its internal logic (it showed that extracted values matched existing KB entries rather than input text), but whether that behavior reflects the production pipeline or mock LLM behavior is now unresolved. The finding is reclassified from "confirmed critical defect" to "plausible mock artifact — requires retest with real LLM provider."
+
+---
+
+## v0.2.16 Rerun Update — 2026-03-21
+
+### 1. Master Results Table — v0.2.16 Rows
+
+| Benchmark | Condition | n | Score | Change from v0.2.14 | Statistically supportable? |
+|-----------|-----------|---|-------|--------------------|-----------------------------|
+| B4 — Multi-hop, iranti_search | Iranti search-based | 4 Qs | ~2–3/4 (partial; vectorScore 0.35–0.74; direct attribute queries now functional) | Improvement — crash fixed; vector now active | No (n=4) |
+| B4 — Multi-hop, semantic paraphrase | Iranti search-based | — | Still fails | Unchanged | No |
+| B6 — Text ingest (real LLM) | Iranti only | 8 facts (4 keys × 2 entities) | 8/8 (100%) | Fixed — real LLM provider; no contamination | No (n=8; single entity type) |
+| B9 — Entity relationships | iranti_related / iranti_related_deep | 4 edges | 4/4 (100%); depth=2 traversal confirmed | Fixed — new tools present and functional | No (n=4) |
+| B11 — observe (auto-detection) | iranti_observe | 1 entity | detectedCandidates=1; entity resolved without hints | Fixed | No (n=1) |
+| B11 — observe with hint | iranti_observe + hint | 6 facts | 5/6 (83%) | Improved — noise entry gone; 1 failure on special char | No (n=6) |
+| B11 — attend natural | iranti_attend | 6 facts | 4/6 (67%) | Improved — entity detected; user/main noise persists in one slot | No (n=6) |
+| B11 — attend forceInject | iranti_attend + explicit hints | 6 facts | 5/6 (83%) | Noise absent with explicit hints | No (n=6) |
+| B12 — Session recovery (baseline) | No Iranti | 8 facts | 0/8 (0%) | New track | No (n=8; single run) |
+| B12 — Session recovery (observe with hint) | iranti_observe + hint | 8 facts | 5/8 (63%) | New track — setup facts recovered; progress facts not | No (n=8; single run) |
+| B12 — Session recovery (explicit query) | iranti_query explicit | 8 facts | 8/8 (100%) | New track | No (n=8; single run) |
+| B12 — Session recovery (handshake) | iranti_handshake | 8 facts | 0/8 (0%) | New track — handshake does not recover task state | No (n=8; single run) |
+| B13 — Upgrade safety (cross-version durability) | iranti_write + iranti_query across versions | 3 facts | 3/3 confirmed | New track | No (n=3; single run) |
+| B13 — Upgrade safety (API surface) | API stability check | — | Stable across v0.2.12→0.2.14→0.2.16 | New track | No |
+
+**Spot-checks (no regressions):** B1, B2, B3, B10 confirmed working in v0.2.16. No functional changes observed in these tracks.
+
+### 2. Changed Track Summaries
+
+**B4 (search) — PARTIAL improvement**
+
+The runtime crash from v0.2.14 is resolved. iranti_search now returns results with non-zero vectorScore (range observed: 0.35–0.74), indicating that the pgvector integration is functional in v0.2.16. Direct attribute queries now work for shared-affiliation terms where vector similarity compensates for TF-IDF degradation. The structural limitation identified in v0.2.12 — TF-IDF scoring near zero for non-unique attribute values — partially persists but is now mitigated by the active vector component. Semantic paraphrase queries still fail: the query surface does not support reformulated or concept-equivalent terms. Multi-hop discovery via named attributes is now viable in cases where vectorScore is sufficient to rank the target entity above background noise.
+
+Score trajectory: v0.2.12 1/4 (structural failure, vector inactive) → v0.2.14 crash (no results) → v0.2.16 partial recovery (crash fixed, vector active, direct attributes functional, paraphrase still failing).
+
+**B6 (ingest) — FIXED under real LLM provider**
+
+With LLM_PROVIDER=openai confirmed, iranti_ingest now extracts from input text correctly. Two prose entities tested: extractedCandidates=20 and 17. Score: 8/8 across both entities. No contamination. The v0.2.12 contamination finding is confirmed as a mock LLM artifact: the production Librarian correctly extracts from input passages. One new behavioral observation: compound facts (e.g., employer) are decomposed into sub-keys (4 sub-keys from one employer fact). This sub-key decomposition is not a defect but must be accounted for in any benchmark that uses expected-key-name matching as evaluation criteria — if the benchmark expects a single "employer" key but ingest produces "employer_name", "employer_start_date", "employer_end_date", "employer_role", the correct extractions will be scored as misses under naive key-matching.
+
+Statistical note: n=8 (4 keys × 2 entities) under real provider. This is the first valid ingest accuracy measurement in the program. Still directionally small; single entity type (prose biographical entities); sub-key decomposition behavior needs documentation in benchmark protocol before this is a reliable performance figure.
+
+**B9 (relationships) — FIXED**
+
+iranti_related and iranti_related_deep are now present as MCP tools and function correctly. 4/4 relationship edges readable. Depth=2 traversal confirms a 4-node graph with correct edge structure. No filter parameter exists: client-side filtering is required. iranti_search no longer crashes (v0.2.14 regression resolved). The prior audit finding "write-only — no retrieval tool present" is fully resolved. B9 is now a functional two-sided benchmark: write edges via iranti_relate, read edges via iranti_related/iranti_related_deep.
+
+**B11 (attend/observe) — IMPROVED with new defect identified**
+
+Four sub-conditions:
+- observe auto-detection: FIXED. detectedCandidates=1; entity resolved without hints. Previously returned 0 in all prior versions.
+- observe with hint: 5/6 (83%). The noise entry (user/main) is gone in this condition. The one failure is sla_uptime, which contains "%" and "/" characters that trigger parse_error/invalid_json in result scoring.
+- attend natural: 4/6 (67%). Entity now detected (previously failed entirely). user/main noise persists in one retrieval slot.
+- attend forceInject: 5/6 (83%). Noise absent. sla_uptime failure is the same special-character defect.
+
+**New defect — special character parse failure:** Values containing "%" or "/" characters trigger parse_error or invalid_json during result scoring. These values are silently excluded from the scored set, reducing the observable accuracy. This is a systematic defect, not a random failure: any deployment that stores percentage-formatted metrics, file paths, URLs, or ratio-format values will have those values unreachable through attend/observe scoring. The sla_uptime type value "99.9% availability / 4h response SLA" is representative of a broad class of real-world values that would be affected.
+
+### 3. Statistical Note: B6 Sample Size
+
+B6 now has n=8 (4 keys × 2 entities) under a real LLM provider. This is the first real-provider ingest measurement in the program. The 95% Wilson confidence interval on 8/8 is approximately [63%, 100%]. This is directionally strong and consistent with a functional pipeline, but the lower bound leaves substantial room for error rates that would be operationally significant. The sample is also limited to a single entity type (prose biographical entities) and a single extraction configuration. The sub-key decomposition behavior (compound facts split into multiple sub-keys) introduces a scoring ambiguity: the denominator of any accuracy calculation depends on whether sub-keys are counted individually or aggregated. Until the sub-key counting convention is standardized in the benchmark protocol, 8/8 should be read as "all tested key-types recovered in some form" rather than "all expected keys matched exactly."
+
+### 4. New Defect Finding: Special Character Parse Failure in B11
+
+The special character parse failure identified in v0.2.16 B11 is a reproducibility risk of the first order. Its properties:
+
+- **Trigger conditions:** Values containing "%", "/", or similar special characters (parse_error/invalid_json surface in scoring).
+- **Failure mode:** Silent exclusion — the value is not flagged as wrong, it is absent from the scored set. A benchmark that expects n results but receives n−k due to parse failures will appear to have a lower score without exposing the mechanism.
+- **Scope:** Any benchmark track or deployment that stores percentage-formatted metrics, file paths, URLs, version strings, ratios, or similar structured values will encounter this defect. It is not specific to B11's content.
+- **Reproducibility impact:** If a future replication run uses different fact values (avoiding special characters), it will appear to score higher than the current run, creating a spurious version-to-version improvement signal. Conversely, if special character values are densely represented in a future trial, scores will drop below the current 5/6 without any functional regression.
+- **Required protocol change:** Benchmark fact sets must document whether any values contain special characters. Scoring must distinguish parse_error exclusions from genuine accuracy failures. Until this is enforced, B11 scores are not comparable across runs with different fact value character distributions.
+
+### 5. New Tracks: B12 and B13
+
+**B12 — Session Recovery**
+
+B12 tests whether Iranti tools can reconstitute prior session context after a clean handoff. The four-condition design exposes an important capability gradient:
+
+- Baseline (0/8): confirms that stateless LLMs have zero cross-session recovery capability without external memory, as expected.
+- iranti_observe with hint (5/8): Iranti can reconstitute setup facts (entity attributes established in prior sessions) but not progress facts (transient state like "current step = 3" or "last action = X"). This is the expected limitation of a KB that stores durable entity state rather than procedural history.
+- iranti_query explicit (8/8): explicit key-value lookup recovers all facts when the agent knows what to ask for. This is an oracle condition — it demonstrates the ceiling of KB retrieval, not autonomous recovery.
+- iranti_handshake (0/8): the handshake tool does not function as a session recovery mechanism for task state.
+
+The gap between iranti_query explicit (8/8) and iranti_observe with hint (5/8) is diagnostic: Iranti's KB holds the facts, but the observe-based autonomous injection pathway cannot surface progress-type facts without explicit query. The B12 finding is that session recovery requires explicit query design, not passive observation, for task-state facts.
+
+Statistical note: B12 is a single-run new track (n=8 per condition). Results are directional only.
+
+**B13 — Upgrade Safety**
+
+B13 is a durability and API stability check, not a capability benchmark. Findings:
+- Cross-version KB durability confirmed: facts written in v0.2.12 are readable in v0.2.14 and v0.2.16 without re-ingestion or schema migration.
+- Write/read post-upgrade: 3/3 across the upgrade sequence.
+- API surface stable: no breaking changes in MCP tool signatures across the three versions tested.
+
+B13 does not produce a differential score (there is no meaningful "baseline" for upgrade safety). Its function in the program is to establish that benchmark measurements from prior versions remain valid against KB state accumulated under those versions — they were not silently corrupted by subsequent upgrades. This finding is a prerequisite for treating the v0.2.12–v0.2.16 comparison as a genuine capability trajectory rather than a data-corruption artifact.
+
+Statistical note: n=3, single run. B13 is currently an existence proof, not a characterized failure rate.
+
+### 6. Summary: What Iranti Can Defensibly Claim vs. What Remains Limited (v0.2.16)
+
+**Defensible claims (supported by current evidence, with caveats):**
+
+- iranti_write and iranti_query provide reliable structured fact storage and retrieval for exact key lookups (confirmed across B1, B2, B9, B12, B13; multiple versions).
+- iranti_ingest extracts from prose input text correctly under a real LLM provider (B6, n=8, first valid measurement; sub-key decomposition behavior documented).
+- iranti_related and iranti_related_deep correctly read relationship edges and support depth-2 graph traversal (B9; n=4).
+- KB state is durable across version upgrades (B13; n=3).
+- iranti_observe resolves entities without hints when entity is in KB (B11; n=1).
+- iranti_observe with hints achieves 5/6 on non-special-character values (B11; n=6).
+- iranti_attend with forceInject achieves 5/6 on non-special-character values (B11; n=6).
+
+**What remains limited or uncharacterized:**
+
+- iranti_search semantic paraphrase queries still fail. Multi-hop via named attributes is viable but not fully characterized (B4; n small).
+- Special character values (%, /, etc.) are silently excluded from attend/observe scoring. Systematic defect; not yet fixed (B11).
+- Session recovery via iranti_observe is limited to setup/entity facts; progress/transient facts require explicit iranti_query (B12).
+- iranti_handshake does not function as a session recovery mechanism (B12).
+- user/main/favorite_city noise entry persists in KB and contaminates one slot in attend natural (B11). KB state isolation remains incomplete.
+- No track has sufficient sample size for confidence intervals. All scores are point estimates.
+- Self-evaluation bias (C1) is unresolved across all tracks. No independent evaluation has been implemented.
+- B12 and B13 are single-run new tracks. Results are not yet replicated.

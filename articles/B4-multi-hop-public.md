@@ -2,6 +2,8 @@
 
 > **Update (v0.2.14, 2026-03-21):** The search regression described in this article has worsened. iranti_search now crashes at runtime rather than returning degraded results. The multi-hop capability remains non-functional. Exact-lookup (iranti_query) is unaffected. See the formal paper for details.
 
+> **Update (v0.2.16, 2026-03-21):** Significant improvement. The crash is fixed and vector scoring is now active. See the final status section at the end of this article for the full picture.
+
 **Series:** Iranti Benchmark Journal
 **Track:** B4 — Multi-hop Entity Reasoning
 **Date:** March 2026
@@ -107,6 +109,34 @@ Context-reading avoids this problem entirely. A language model scanning a docume
 The search gap is fixable. Possible approaches include ensuring vector embeddings are generated before queries are issued, testing whether explicit summary fields improve searchability, or building dedicated entity-discovery queries. We haven't tested any of these.
 
 The benchmark program will return to this question at larger KB sizes, where the comparison between context-reading and Iranti's exact lookup becomes meaningful — and where Iranti's advantages are more likely to emerge.
+
+---
+
+---
+
+## Final Status: v0.2.16 — Significant Improvement, One Remaining Ceiling
+
+The picture changed substantially with v0.2.16. Here is where things stand.
+
+**The crash is fixed.** The runtime error introduced in v0.2.14 that prevented `iranti_search` from returning anything at all is gone. The tool runs.
+
+**Vector scoring is active.** In v0.2.12, the vector embedding part of the search scored zero for every result — meaning the system was running on keyword matching only, and keyword matching alone wasn't good enough for multi-entity disambiguation. In v0.2.16, vector scores are in the range 0.35–0.74. The hybrid search is working as designed.
+
+**Multi-hop via named attributes now works.** The three questions that failed in v0.2.12 — "find the researcher at MIT Computer Science," "find the researcher who came from OpenAI," "find the other researcher at Stanford AI Lab" — would succeed in v0.2.16. The search can find researchers by their institution names and former employers. The vector component fills in what keyword matching alone could not.
+
+**One ceiling remains: indirect descriptions.** If you ask "find the researcher who studies causality and inference without econometrics" — a semantic paraphrase rather than a direct attribute name — the correct entity does not appear in the top results. The system searches for direct attribute values better than it reasons about semantic descriptions of what those values mean. Multi-hop chains that rely on indirect semantic circumlocution rather than direct attribute matching will still fail.
+
+**In practical terms for v0.2.16:** You can use `iranti_search` to support multi-hop reasoning over researchers by institution name, previous employer, or named attributes. You cannot yet use it for indirect-description queries like "find someone who works on X without Y." The structured-attribute lookup case — which is the primary B4 use case — is now viable.
+
+The formal version history:
+
+| Version | iranti_search | vectorScore | Direct attribute query | Semantic paraphrase |
+|---------|--------------|-------------|----------------------|-------------------|
+| 0.2.12 | Degraded | 0 | Partial (unique terms only) | Fails |
+| 0.2.14 | Crashes | N/A | N/A | N/A |
+| 0.2.16 | Operational (partial) | Non-zero (0.35–0.74) | Works | Fails |
+
+This is a meaningful improvement. The tool went from crashing to working for the primary case. The semantic paraphrase ceiling is a known limitation, not a mystery — it tells you where the capability boundary is so you can design around it.
 
 ---
 

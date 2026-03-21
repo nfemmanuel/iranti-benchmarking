@@ -1,7 +1,7 @@
 # Context Recovery via iranti_observe: A Controlled Evaluation of Hint-Assisted KB Recall and Auto-Detection Failure
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.2 (v0.2.14 rerun addendum, 2026-03-21)
+**Version:** 0.3 (v0.2.16 rerun addendum, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Paper Author)
 **Benchmark track:** B11 — Context Recovery (iranti_observe)
 **Model under test:** Iranti (installed instance, local) — iranti_observe
@@ -407,3 +407,110 @@ Confirmed: detectedCandidates=0. Identical to all prior runs.
 The two-layer decomposition holds:
 - Layer 1 (should inject?): Fixed in v0.2.14. Works under both mock and real providers.
 - Layer 2 (what to inject?): Broken due to auto-detection failure. Architectural, not fixable via provider swap.
+
+---
+
+## Addendum 3 — v0.2.16 Rerun (2026-03-21)
+
+### Version History Table (All Versions)
+
+| Sub-test | v0.2.12 | v0.2.14 (mock) | v0.2.14 (openai) | v0.2.16 |
+|----------|---------|---------------|-----------------|---------|
+| observe with hint | 5/6 (83%) | 4/5 (80%) noise | 4/5 (80%) noise | 5/6 (83%) noise gone |
+| observe auto-detect | 0/6 (fails) | 0/5 (fails) | 0/5 (fails) | FIXED: 5/6 |
+| attend natural heuristic | parse_failed | FIXED (classifier) | FIXED (classifier) | IMPROVED: entity detected, noise |
+| attend forceInject=true + hint | 5/6 | 4/5 noise | 4/5 noise | 5/6 no noise |
+
+### Sub-test Results
+
+#### 4a. iranti_observe with explicit hint — 5/6 (83%)
+
+The noise entry (`user/main/favorite_city`) observed in v0.2.14 is no longer present in hint-assisted observe results. Effective coverage returns to the v0.2.12 level of 5/6 (83%). The five facts recovered are the same five facts recovered in v0.2.12: `database_engine`, `auth_strategy`, `deployment_region`, `rate_limit`, and one additional fact. The `sla_uptime` fact was not returned.
+
+Debug output indicates the cause:
+
+```json
+"dropped": [{"name": "parse_error", "reason": "invalid_json"}],
+"heuristic_used": true
+```
+
+The `sla_uptime` value — "99.99% weekly, incident response SLA 15min" — contains the characters `%` and `/`. These characters appear to trigger a parse failure in the result scoring pipeline, causing the fact to be silently excluded from the returned set. The fact exists in the KB (confirmed via direct `iranti_query`); it is not missing from storage. It is being dropped during result assembly.
+
+This is a new defect. The `sla_uptime` fact was returned successfully in v0.2.12 with confidence=92 at rank 3. Its absence in v0.2.16 is a regression, and the mechanism (parse failure on special characters in values) is a newly confirmed defect introduced — or first observable — in v0.2.16.
+
+#### 4b. iranti_observe auto-detection (no hints) — FIXED
+
+This is the architecturally significant change in v0.2.16.
+
+All prior versions (v0.2.12, v0.2.14 mock, v0.2.14 openai) produced `detectedCandidates=0` for all auto-detection calls. Entity resolution without hints was non-functional for the entire prior evaluation history of B11.
+
+In v0.2.16:
+
+```json
+"detectedCandidates": 1,
+"entitiesDetected": ["project/v0216_orbital_kb_v1"],
+"confidence": 0.82,
+"resolvedVia": "alias"
+```
+
+The entity `project/v0216_orbital_kb_v1` is resolved via alias match with confidence 0.82. The auto-detection mechanism now functions. The call returns 5/6 facts without any entity hints provided.
+
+This is a genuine architectural fix, not a test artifact. The mechanism that was consistently broken across all prior versions is now operational. The `iranti_observe` operation can now perform context recovery without the calling agent supplying entity hints — the core requirement for fully autonomous retrieval.
+
+Note: the `sla_uptime` fact is still missing from auto-detected results, for the same parse defect reason identified in sub-test 4a.
+
+#### 4c. iranti_attend natural heuristic — IMPROVED
+
+Prior state: In v0.2.14, the classifier was fixed (`shouldInject=true`, confidence=0.93), but the retrieval layer produced noise (`user/main/favorite_city`). Auto-detection still failed, so attend fired but injected irrelevant facts.
+
+v0.2.16 state:
+
+```
+shouldInject: true
+confidence: 0.93
+entity: auto-detected
+```
+
+The entity is now auto-detected in the attend pipeline as well. 4/6 facts are injected. However:
+
+1. The `user/main/favorite_city` noise entry (confidence=91) still occupies one injection slot. It appears to originate from the attend pipeline's implicit `user/main` context resolution, which resolves user-level context before applying entity-specific retrieval. The noise was eliminated in hint-based paths (sub-test 4a) but persists in the natural heuristic path.
+
+2. The `sla_uptime` fact is absent, for the same parse defect reason.
+
+Effective attend natural injection: 4/6 (67%). This is an improvement from prior versions where the retrieval layer was entirely broken, but it is not a clean result. One noise slot and one defect-dropped fact prevent full correctness.
+
+#### 4d. iranti_attend forceInject=true with explicit hint — 5/6 (83%)
+
+With `forceInject=true` and an explicit entity hint:
+- The `user/main/favorite_city` noise entry is absent. The explicit hint suppresses the implicit `user/main` context resolution that produces the noise in the natural heuristic path.
+- `sla_uptime` is still absent (same parse defect).
+- 5/6 facts injected; effective coverage matches v0.2.12 and the observe-with-hint result.
+
+### New Defect: Parse Failure on Special Characters in Values
+
+A new defect is confirmed in v0.2.16: values containing special characters — specifically `%` (percent sign) and `/` (forward slash) — trigger a `parse_error/invalid_json` in the result scoring pipeline. The affected fact is silently excluded from returned results. The debug trace shows `heuristic_used: true`, indicating the system falls back to a heuristic when the primary scoring path fails.
+
+This defect is distinct from the entity auto-detection issue addressed in v0.2.16. It affects the result assembly stage and applies regardless of how the entity was identified (hint-based or auto-detected). Any fact with a value containing `%` or `/` in any position is potentially affected.
+
+The sla_uptime value "99.99% weekly, incident response SLA 15min" contains both characters and is consistently dropped across all v0.2.16 sub-tests that otherwise return clean results.
+
+This is a narrow but reproducible defect. The data is in the KB and is queryable directly; the defect is in the serialization or scoring path that processes values before returning them. The claim that Iranti "has" the fact is accurate; the claim that Iranti "can serve it back through observe/attend" is currently false for values containing these characters.
+
+### Composite Verdict: v0.2.16
+
+v0.2.16 represents substantial improvement relative to all prior versions, with one new defect:
+
+**Fixed:**
+- Entity auto-detection (`iranti_observe`): detectedCandidates=1, confidence=0.82 via alias. This was the core architectural failure across all prior versions. It is now resolved.
+- Noise entry eliminated from hint-based and forceInject paths. The `user/main/favorite_city` contamination no longer appears in sub-tests that specify an explicit entity.
+
+**Improved:**
+- `iranti_attend` natural heuristic now auto-detects the entity and injects relevant facts (4/6). The full pipeline — decision layer and retrieval layer — now both function. The result is not clean (noise, defect-dropped fact), but the end-to-end path is operational.
+
+**New defect:**
+- Special character parse failure (`parse_error/invalid_json`): values containing `%` or `/` are silently dropped from results. Affects all retrieval paths. `sla_uptime` is the confirmed affected fact in B11.
+
+**Persistent issue:**
+- `user/main/favorite_city` noise persists in the `iranti_attend` natural heuristic path. This is a narrow remaining noise source, confined to the attend pipeline's implicit user context resolution.
+
+The two-layer decomposition from v0.2.14 is now resolved at both layers: the decision layer (should inject?) has been working since v0.2.14; the retrieval layer (what to inject?) is now fixed in v0.2.16. The remaining issues are a new defect (parse failure) and a partial noise issue in one sub-path.

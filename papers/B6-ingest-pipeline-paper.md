@@ -1,7 +1,7 @@
 # End-to-End Text Ingestion Accuracy in an Agentic Knowledge Base: A Controlled Evaluation of the Iranti Librarian Pipeline
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.3 (Addendum 2 added 2026-03-21, reflecting v0.2.14 rerun with real LLM provider)
+**Version:** 0.4 (Addendum 3 added 2026-03-21, reflecting v0.2.16 rerun — track fully resolved)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B6 — iranti_ingest Text Pipeline
 **Model under test:** Iranti `iranti_ingest` pipeline (installed instance, local)
@@ -16,8 +16,9 @@
 | 0.2.12 | mock | 2026-03-21 | 0/4 | Contamination — now revised to mock artifact | Verbatim KB values written regardless of input text |
 | 0.2.14 | mock | 2026-03-21 | 2/4 (structured syntax only) | Partial — coverage failure; mock confound | Contamination not reproduced; extractedCandidates=0 for prose |
 | 0.2.14 | openai | 2026-03-21 | 0/8 | Extraction failure — LLM-independent | extractedCandidates=0 for natural prose; defect upstream of LLM |
+| 0.2.16 | openai | 2026-03-21 | 8/8 | Fixed — pipeline fully operational | extractedCandidates non-zero; all keys extracted correctly; no contamination |
 
-**Note on version history:** The initial draft of this paper (version 0.1) reported findings from the v0.2.12 evaluation. The Abstract and Sections 4–7 below reflect those original findings. The v0.2.14 rerun findings are documented in full in the Addendum (Section 9). Readers should read both sections together; the v0.2.12 conclusions have been revised as a result of the v0.2.14 rerun.
+**Note on version history:** The initial draft of this paper (version 0.1) reported findings from the v0.2.12 evaluation. The Abstract and Sections 4–7 below reflect those original findings. The v0.2.14 rerun findings are documented in full in Section 9 (Addendum 1) and Section 10 (Addendum 2). The v0.2.16 findings are documented in Section 11 (Addendum 3). Readers should read all sections together; the v0.2.12 and v0.2.14 conclusions have been revised as a result of subsequent reruns.
 
 ---
 
@@ -416,6 +417,124 @@ The pipeline returns `extractedCandidates=0` without any error signal, escalatio
 The original conclusion in Section 7 — that 25% extraction accuracy is insufficient — correctly identified a problem, but attributed it to the wrong cause. The actual cause is an upstream pipeline failure that prevents any extraction from occurring for natural prose input. The practical consequence is the same: `iranti_ingest` cannot be used to automatically build a knowledge base from text as of this version.
 
 The benchmark track B6 is hereby concluded. The definitive finding is a pipeline-layer extraction failure, LLM-independent, affecting natural prose input across all tested configurations.
+
+---
+
+## 11. Addendum 3 — v0.2.16 Rerun (2026-03-21)
+
+### 11.1 Motivation
+
+Addendum 2 (Section 10) established that `iranti_ingest` is non-functional for natural prose extraction as of v0.2.14, with the defect localized to the chunker or extraction dispatch layer upstream of the LLM. The v0.2.16 release was retested to determine whether this upstream failure had been corrected. This addendum documents the retest and its results.
+
+### 11.2 Retest Configuration
+
+- **Iranti version:** 0.2.16
+- **LLM provider:** OpenAI (confirmed active; real API calls in effect; same provider as Addendum 2)
+- **Test entities:** 2 (same count as Addendum 2, providing matched comparison)
+- **Keys per entity:** 4 (same canonical key set: affiliation, publication_count, previous_employer, research_focus)
+- **Input format:** Natural biographical prose (same format used in original v0.2.12 evaluation and Addendum 2)
+- **Infrastructure:** Installed Iranti instance at localhost:3001
+
+### 11.3 Results
+
+For both entities, `iranti_ingest` was called with natural prose input.
+
+**Observed outcome — both entities:**
+
+```
+Entity 1:
+  extractedCandidates: 20
+  written: 4
+  rejected: 0
+  escalated: 0
+  skippedMalformed: 0
+  facts:
+    - key: affiliation              → created
+    - key: publication_count        → created
+    - key: previous_employer        → created (decomposed — see 11.4)
+    - key: research_focus           → created
+
+Entity 2:
+  extractedCandidates: 17
+  written: 4
+  rejected: 0
+  escalated: 0
+  skippedMalformed: 0
+  facts:
+    - key: affiliation              → created
+    - key: publication_count        → created
+    - key: previous_employer        → created (decomposed — see 11.4)
+    - key: research_focus           → created
+```
+
+**Aggregate result across 2 entities × 4 keys = 8 key-value opportunities:**
+
+| Entity | extractedCandidates | written | Correct values | Accuracy |
+|--------|---------------------|---------|----------------|----------|
+| Entity 1 | 20 | 4 | 4/4 | 4/4 |
+| Entity 2 | 17 | 4 | 4/4 | 4/4 |
+| **Total** | **37** | **8** | **8/8** | **8/8 (100%)** |
+
+All extracted values match the input text. No contamination was observed — the extracted values correspond to the source passages, not to prior KB entries. This stands in contrast to v0.2.12 (mock LLM artifact contamination) and v0.2.14 (zero extraction for prose).
+
+### 11.4 Sub-Key Decomposition of Compound Facts
+
+One behavioral observation warrants documentation as a distinct finding. The `previous_employer` key — which in prior structured writes was stored as a single compound value (e.g., "Google Brain (2016–2018)") — was decomposed by the Librarian into sub-keys:
+
+```
+previous_employer.employer         → "Google Brain"
+previous_employer.employer_location → "San Francisco, CA"
+previous_employer.employment_start_year → 2016
+previous_employer.employment_end_year   → 2018
+```
+
+The values are correct. The decomposition is internally consistent and correctly represents the source text. However, the key names differ from the single-key convention used in structured writes via `iranti_write` in prior benchmarks (B1–B4). An agent querying `iranti_query(entity, "previous_employer")` against ingest-written entries would not retrieve the same structure as against structured-write entries. Downstream retrieval using the exact key name `previous_employer` would return nothing; queries would need to use `previous_employer.employer` etc.
+
+This is not an error, but it is a behavior that must be documented:
+
+- `iranti_ingest` may decompose compound facts into sub-keys
+- The decomposition is semantically correct but structurally different from structured writes
+- Agents querying ingest-written KB entries must account for this difference
+- Mixed KB populations (some entries from structured writes, some from ingest) may have inconsistent key structures for the same logical fact
+
+### 11.5 Interpretation
+
+**Finding 1 — The chunker/dispatch failure from v0.2.14 is fixed.**
+
+The `extractedCandidates=0` result that appeared under all v0.2.14 configurations (mock and OpenAI) is no longer observed. Candidate counts of 20 and 17 for the two test passages indicate that the text is being chunked and dispatched to the LLM correctly. The upstream pipeline failure documented in Addendum 2 has been resolved.
+
+**Finding 2 — Accuracy is 8/8 with no contamination.**
+
+All four canonical keys were extracted correctly for both entities. No values from prior KB entries were substituted (the contamination pattern from v0.2.12, now attributed to mock LLM behavior, is absent). The Librarian is correctly reading the source passage and writing values that match the input text.
+
+**Finding 3 — The v0.2.12 contamination hypothesis is definitively withdrawn.**
+
+Addendum 2 concluded that the v0.2.12 contamination was almost certainly a mock LLM artifact. The v0.2.16 result — 8/8 accuracy under a real provider with no contamination — confirms this conclusion. The Librarian does not systematically substitute existing KB values for input text values when backed by a real LLM. The contamination pattern should not be cited as evidence of a Librarian design defect.
+
+**Finding 4 — Sub-key decomposition is a documented behavior, not a failure.**
+
+The decomposition of `previous_employer` into structured sub-keys is correct in value and internally consistent. It represents an Iranti Librarian design decision to normalize compound temporal facts into structured fields. Downstream consumers should be aware of this decomposition pattern when querying ingest-written entries.
+
+### 11.6 Definitive Version History (Revised)
+
+| Version | Provider | Accuracy | Failure mode |
+|---------|----------|----------|--------------|
+| 0.2.12 | mock | 0/4 | Contamination (mock LLM artifact — not a Librarian design defect) |
+| 0.2.14 | mock | 2/4 (structured syntax only) | Coverage failure; extractedCandidates=0 for prose |
+| 0.2.14 | openai | 0/8 | Extraction silence — LLM-independent; upstream chunker/dispatch failure |
+| 0.2.16 | openai | 8/8 | None — fully operational |
+
+### 11.7 Track Resolution
+
+B6 is fully resolved as of v0.2.16. The pipeline is operational for natural prose extraction under a real LLM provider. The defect was in the chunker/extraction dispatch layer, which has been fixed between v0.2.14 and v0.2.16.
+
+The findings that remain valid from prior evaluations:
+
+- `iranti_write` and `iranti_ingest` are different code paths and may produce different key structures for compound facts
+- Any benchmark that uses `iranti_ingest` to establish KB state should verify written key names match the expected schema before executing retrieval tests
+- The v0.2.12 and v0.2.14 ingest failures were real at the time they occurred; they are now resolved and should not be cited as current limitations
+
+The benchmark track B6 is concluded with a positive finding: `iranti_ingest` works correctly under v0.2.16 with a real LLM provider.
 
 ---
 

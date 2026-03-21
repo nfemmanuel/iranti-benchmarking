@@ -1,6 +1,19 @@
 # Software Versions
 
-## Current (v2.0 rerun)
+## Current (v3.0 — B13 execution)
+
+| Component | Version |
+|-----------|---------|
+| iranti CLI | 0.2.16 |
+| iranti runtime | 0.2.16 |
+| Instance | local (localhost:3001) |
+| Instance mode | isolated |
+| LLM_PROVIDER | openai |
+| Vector backend | pgvector (unreachable — warn) |
+
+B13 executed against Iranti 0.2.16 on 2026-03-21. Confirmed via handshake (`briefGeneratedAt: 2026-03-21T19:51:14.859Z`, `sessionStarted: 2026-03-21T07:27:57.030Z`).
+
+## v2.0 rerun
 
 | Component | Version |
 |-----------|---------|
