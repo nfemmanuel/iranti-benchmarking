@@ -1,11 +1,20 @@
 # Multi-Hop Entity Reasoning with Iranti: A Controlled Evaluation Revealing a Critical Search Failure
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (Updated 2026-03-21 — v0.2.14 regression addendum added)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B4 — Multi-Hop Entity Reasoning
 **Model under test:** Iranti (installed instance, local) — search-based and oracle arms
 **Baseline model:** Claude Sonnet 4.6 (context-reading)
+
+---
+
+## Version History
+
+| Version | Date | iranti_search verdict | iranti_query verdict |
+|---------|------|----------------------|----------------------|
+| 0.2.12 | 2026-03-21 | Broken (degraded scores, TF-IDF only, vectorScore=0) | Working (4/4) |
+| 0.2.14 | 2026-03-21 | REGRESSED (runtime crash) | Working (unaffected) |
 
 ---
 
@@ -287,6 +296,44 @@ Khattab, O., et al. (2022). Demonstrate-Search-Predict: Composing Retrieval and 
 Trivedi, H., et al. (2022). MuSiQue: Multihop Questions via Single-hop Question Composition. Transactions of the Association for Computational Linguistics, 10.
 
 Yang, Z., et al. (2018). HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question Answering. Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing (EMNLP 2018).
+
+---
+
+## Addendum — v0.2.14 Rerun
+
+This addendum records findings from a rerun of the B4 evaluation against Iranti v0.2.14, conducted on 2026-03-21.
+
+### What Was Tested
+
+The same B4 evaluation procedure was re-executed against the installed Iranti instance after upgrading from v0.2.12 to v0.2.14. The rerun was initiated specifically to determine whether the `iranti_search` failures documented in the original v0.2.12 findings had been addressed in the new version.
+
+### What Was Observed
+
+`iranti_search` did not return degraded results as in v0.2.12. Instead, it crashed at runtime before returning any results. The error observed was:
+
+```
+Spread syntax requires ...iterable[Symbol.iterator] to be a function
+```
+
+This is a JavaScript runtime error indicating that `iranti_search` is attempting to spread a value that is not iterable — the function fails before it can execute the search and return results of any quality.
+
+Additional findings from the v0.2.14 rerun:
+
+- **pgvector:** Still unreachable. The `iranti doctor` check reports pgvector as a warning (not connected). This was also the case in v0.2.12.
+- **MCP surface:** No new search-related tools were added to the MCP tool surface between v0.2.12 and v0.2.14. The available tool set is unchanged.
+- **`iranti_query`:** Unaffected by the regression. Exact-match entity lookup continues to work correctly.
+
+### What Changed Between Versions
+
+In v0.2.12, `iranti_search` was structurally broken but observable: it returned results, but those results were wrong. The vector score (`vectorScore`) was 0 for all results, and TF-IDF scoring was degraded for common attribute terms. The failure was diagnosable from the returned output.
+
+In v0.2.14, `iranti_search` crashes before returning anything. The failure is no longer observable through returned results — it is only observable through the runtime error. The capability moved from "degraded but observable" to "crashes at runtime."
+
+### Correction Note
+
+The v0.2.12 conclusion — that `iranti_search` was "broken but observable" — must be revised upward in severity for v0.2.14. The tool now crashes at runtime rather than returning empty or wrong results. The multi-hop capability remains non-functional and is now also non-observable in the sense that no partial or ranked output is returned.
+
+The core finding of the original paper (that `iranti_search` does not support attribute-value discovery reliably) is confirmed and strengthened. `iranti_query` remains sound, and the oracle arm result (4/4) would be expected to replicate unchanged.
 
 ---
 

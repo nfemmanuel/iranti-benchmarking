@@ -371,3 +371,41 @@ The provenance of ticket/cp_t010 and ticket/cp_t011 has not been inspected. Unti
 ---
 
 *This memo is a statistical review document only. It does not address the scientific framing, related work, or publication strategy for these results. Those are addressed separately by the paper_author and science_communicator roles.*
+
+---
+
+## v0.2.14 Rerun Update — 2026-03-21
+
+### Summary: v0.2.12 vs v0.2.14
+
+| Benchmark | v0.2.12 finding | v0.2.14 finding | Net change |
+|-----------|----------------|----------------|------------|
+| B4 (iranti_search) | Broken but observable (vectorScore=0, TF-IDF degradation, 1/4 multi-hop) | Crashes at runtime (spread/iterator error); pgvector still unreachable; returns no results | Worse — regression |
+| B6 (iranti_ingest) | Contamination confirmed: ingest writes KB entry values verbatim (0/4 for kai_bergstrom isolation test) | Contamination pattern not reproduced; LLM_PROVIDER=mock confirmed as likely confound; extractedCandidates=0 for prose input | Confound identified — v0.2.12 finding downgraded |
+| B9 (iranti_relate) | Write-only finding: no MCP query tool present | Write-only finding unchanged; iranti_search crash noted as additional limitation | Unchanged |
+| B11 attend (iranti_attend) | classification_parse_failed; shouldInject behavior unclear | Fixed: no classification_parse_failed; shouldInject=true with correct reasoning | Improvement |
+| B11 observe (iranti_observe) | detectedCandidates=0 | detectedCandidates=0 | Unchanged |
+
+### Changed findings
+
+**B4: regression (score: broken → crashed)**
+In v0.2.12, iranti_search returned observable degraded results (vectorScore=0, TF-IDF-based partial retrieval, 1/4 multi-hop accuracy). In v0.2.14, iranti_search crashes before returning results (spread/iterator runtime error). This is a functional regression: the mechanism investigation findings from v0.2.12 cannot be replicated on v0.2.14, and any benchmark or replication attempt that depends on iranti_search will observe a crash rather than degraded-but-observable behavior.
+
+**B6: confound identified (contamination verdict: downgraded from confirmed to suspected-mock-artifact)**
+The contamination pattern documented in v0.2.12 (verbatim KB entry values written as extracted facts) was not reproduced in v0.2.14. The critical confound identified is LLM_PROVIDER=mock: the Iranti instance has been running with a mock LLM provider throughout the entire benchmarking program. In v0.2.12, the mock returned canned KB data; in v0.2.14, the mock returns empty (extractedCandidates=0 for prose input). The behavioral difference between versions may be a mock implementation change rather than a production pipeline change. The contamination finding from v0.2.12 cannot be attributed to the production ingest pipeline with confidence.
+
+**B11: partial improvement (attend classifier fixed; auto-detection unchanged)**
+iranti_attend's classification behavior is fixed in v0.2.14: classification_parse_failed no longer occurs, and shouldInject=true is returned with correct reasoning. This is a genuine improvement in classifier function. iranti_observe's auto-detection (detectedCandidates=0) is unchanged. A new cross-benchmark noise finding was identified: a KB entry user/main/favorite_city (confidence 92) is present in the instance and is occupying retrieval result slots across benchmarks, consistent with session memory written by Iranti's own infrastructure.
+
+### Unchanged
+
+- **B9:** write-only confirmed. No MCP query tool has been added in v0.2.14. iranti_search runtime crash is noted as an additional limitation affecting B9's retrieval-side completeness.
+- **B1, B2, B3, B7, B8, B10:** not retested in this rerun. No structural changes expected based on the v0.2.14 findings, but these tracks carry the LLM_PROVIDER=mock confound for any Iranti subsystem component that routes through the LLM (see statistical note below).
+
+### New cross-benchmark finding: iranti_search runtime crash
+
+The v0.2.14 iranti_search crash (spread/iterator error, pgvector still unreachable) is a regression that affects any benchmark using iranti_search. Both B4 and B9 are directly affected. Any future replication attempt on v0.2.14 will observe this crash. The v0.2.12 structural findings (vectorScore=0, TF-IDF degradation) remain the best available characterization of search behavior prior to the v0.2.14 regression, but those findings were themselves based on a non-crashing but degraded state that no longer exists.
+
+### Statistical note on B6
+
+The v0.2.12 contamination finding was based on n=8 ingest trials (4 diana_voronova + 4 kai_bergstrom). With LLM_PROVIDER=mock, these trials cannot be treated as testing the production ingest pipeline. The mock LLM in v0.2.12 appeared to return canned KB data as extracted candidates; in v0.2.14, the mock returns empty. The behavioral difference tracks the mock implementation, not the Librarian extraction logic. All B6 conclusions from v0.2.12 are now flagged as potentially confounded by the mock provider. The controlled contrast between diana_voronova and kai_bergstrom retains its internal logic (it showed that extracted values matched existing KB entries rather than input text), but whether that behavior reflects the production pipeline or mock LLM behavior is now unresolved. The finding is reclassified from "confirmed critical defect" to "plausible mock artifact — requires retest with real LLM provider."

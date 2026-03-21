@@ -1,5 +1,7 @@
 # When Finding an Answer Requires Finding Two Things First
 
+> **Update (v0.2.14, 2026-03-21):** The search regression described in this article has worsened. iranti_search now crashes at runtime rather than returning degraded results. The multi-hop capability remains non-functional. Exact-lookup (iranti_query) is unaffected. See the formal paper for details.
+
 **Series:** Iranti Benchmark Journal
 **Track:** B4 — Multi-hop Entity Reasoning
 **Date:** March 2026

@@ -1,7 +1,7 @@
 # Write-Only Relationship Graph: Evaluating Iranti's Entity Relationship Capability Against Knowledge Graph Standards
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (v0.2.14 rerun addendum, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B9 — Entity Relationship Graph (iranti_relate)
 **Model under test:** Iranti (installed instance, local) — iranti_relate write arm and iranti_search retrieval arm
@@ -309,3 +309,41 @@ See `benchmarks/B9-entity-relationships/benchmark.md`.
 ## Appendix B: Raw Results
 
 See `results/raw/B9-entity-relationships.md`.
+
+---
+
+## Addendum: v0.2.14 Rerun (2026-03-21)
+
+### Version History
+
+| Version | Write arm | MCP query tool | iranti_search behavior | Verdict |
+|---------|-----------|---------------|----------------------|---------|
+| v0.2.12 | 5/5 ok | Absent | Returns 0 edges (knowledge_base only) | Write-only |
+| v0.2.14 | 3/3 ok (subset rerun) | Absent | Runtime crash | Write-only; search regression |
+
+### Rerun Findings
+
+The B9 benchmark was rerun against Iranti v0.2.14 to determine whether the write-only finding had changed. Key observations:
+
+**Write arm:** Three relationship edges were written as a representative subset. All three returned `ok: true`. Write fidelity is unchanged.
+
+**MCP tool inventory:** No new MCP query tools for relationship data were added in v0.2.14. `iranti_query_relationship`, `iranti_search_relationships`, or any equivalent tool remains absent. The interface gap is unchanged.
+
+**iranti_search:** In v0.2.14, calling `iranti_search` against relationship data produced a runtime crash rather than the silent zero-result response observed in v0.2.12. This is a regression in the search surface: the behavior went from returning irrelevant results to failing with an error. This does not change the substantive finding (relationships are not indexed), but it does mean the failure mode is now noisier.
+
+**REST endpoint correction:** The v0.2.12 paper referred to the control-plane REST endpoint as `GET /relationships`. The correct path is `GET /kb/related/{entityType}/{entityId}`. The `/relationships` path does not exist and never existed; this was an error in the original paper's endpoint notation. The corrected endpoint has been confirmed accessible via direct HTTP request. It remains not exposed as an MCP tool.
+
+### Revised Summary Table
+
+| Capability | v0.2.12 | v0.2.14 |
+|------------|---------|---------|
+| Write relationship edges | 5/5 (100%) | 3/3 (100%) |
+| Property JSON preservation | Confirmed | Confirmed |
+| iranti_search indexes relationships | No | No (crashes) |
+| MCP read tool for relationships | Absent | Absent |
+| Control-plane REST API access | Available (not MCP-accessible) | Available (not MCP-accessible) |
+| Correct REST endpoint path | `/relationships` (incorrect) | `/kb/related/{entityType}/{entityId}` (confirmed) |
+
+### Verdict
+
+The core B9 finding is unchanged: `iranti_relate` provides write-only access to the relationship graph for agents using the standard MCP interface. v0.2.14 introduces a search surface regression (crash instead of empty results) but does not address the underlying interface gap. The endpoint notation error from v0.2.12 is corrected here.

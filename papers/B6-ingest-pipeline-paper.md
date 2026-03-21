@@ -1,11 +1,22 @@
 # End-to-End Text Ingestion Accuracy in an Agentic Knowledge Base: A Controlled Evaluation of the Iranti Librarian Pipeline
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (Addendum added 2026-03-21, reflecting v0.2.14 rerun)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B6 — iranti_ingest Text Pipeline
 **Model under test:** Iranti `iranti_ingest` pipeline (installed instance, local)
 **Infrastructure:** Iranti instance at localhost:3001
+
+---
+
+## Version History
+
+| Version | Date | Accuracy | Verdict | Key finding |
+|---------|------|----------|---------|-------------|
+| 0.2.12 | 2026-03-21 | 0/4 | Contamination confirmed | Verbatim KB values written regardless of input text |
+| 0.2.14 | 2026-03-21 | 2/4 (limited syntax) | Partial — confound identified | Contamination not reproduced; coverage failure; LLM_PROVIDER=mock confound |
+
+**Note on version history:** The initial draft of this paper (version 0.1) reported findings from the v0.2.12 evaluation. The Abstract and Sections 4–7 below reflect those original findings. The v0.2.14 rerun findings are documented in full in the Addendum (Section 9). Readers should read both sections together; the v0.2.12 conclusions have been revised as a result of the v0.2.14 rerun.
 
 ---
 
@@ -258,6 +269,75 @@ Packer, C., Fang, V., Patil, S. G., Nguyen, K., Wooders, A., and Gonzalez, J. E.
 Shi, F., Chen, X., Misra, K., Scales, N., Dohan, D., Chi, E., Schärli, N., and Zhou, D. (2023). Large Language Models Can Be Easily Distracted by Irrelevant Context. *Proceedings of the 40th International Conference on Machine Learning (ICML 2023)*.
 
 Surdeanu, M. (2013). Overview of the TAC2013 Knowledge Base Population Evaluation: English Slot Filling and Temporal Slot Filling. *Proceedings of the Sixth Text Analysis Conference (TAC 2013)*.
+
+---
+
+## 9. Addendum: v0.2.14 Rerun (2026-03-21)
+
+### 9.1 Motivation
+
+Following the v0.2.12 evaluation, a rerun was conducted against Iranti v0.2.14 to determine whether the contamination finding from Section 4–5 reproduced under a newer version. This section documents the rerun methodology, results, and a revised interpretation that materially changes the conclusion drawn in Section 7.
+
+### 9.2 Rerun Configuration
+
+The rerun used the same test entity (`researcher/diana_voronova`) and the same ground truth as the original evaluation (Section 3.2). The same installed Iranti instance was used, running at localhost:3001. One configuration parameter remained constant across both evaluations and is now identified as a critical confound:
+
+- **LLM_PROVIDER=mock** (unchanged between v0.2.12 and v0.2.14)
+
+This means neither the original evaluation nor the rerun used a real LLM provider for the Librarian's extraction step. The implications of this are discussed in Section 9.4.
+
+### 9.3 Rerun Results
+
+The v0.2.14 rerun produced markedly different behavior from v0.2.12:
+
+**Key observation 1 — Contamination pattern not reproduced.** The verbatim substitution of KB values (cp_t010/cp_t011 entries) that characterized the v0.2.12 output was not observed in v0.2.14. The extracted values are not identical to existing KB entries. The specific contamination pattern described in Section 4.3 did not recur.
+
+**Key observation 2 — New failure: extractedCandidates=0 for prose input.** When the full natural language passage (as used in the original evaluation) was submitted, the chunker/extractor returned `extractedCandidates=0`. No facts were extracted from the prose passage. This is a different failure mode from v0.2.12, where extraction completed but returned wrong values.
+
+**Key observation 3 — Partial extraction under structured syntax.** When input was reformatted using structured key:value-style syntax (rather than prose), the extractor produced `extractedCandidates=2`. Both extracted values were correct:
+
+| Key | Ground Truth | Extracted (v0.2.14) | Correct |
+|-----|-------------|---------------------|---------|
+| publication_count | 38 | 38 | Yes |
+| research_focus | out-of-distribution generalization | out-of-distribution generalization | Yes |
+| affiliation | Carnegie Mellon University | (not extracted) | N/A |
+| previous_employer | Google Brain (2016–2018) | (not extracted) | N/A |
+
+**Effective accuracy (structured syntax only):** 2/4 keys extracted; 2/2 extracted values correct. However, 2/4 keys (affiliation, previous_employer) were not extracted under any tested phrasing.
+
+**Summary:** The v0.2.14 result is neither better nor worse than v0.2.12 in any simple sense. Contamination is gone; coverage failure has replaced it. Under structured syntax, the pipeline is partially functional (2/4 keys, 100% accuracy on extracted keys). Under prose input, it extracts nothing.
+
+### 9.4 The Mock LLM Provider Confound
+
+Both evaluations ran with `LLM_PROVIDER=mock`. This is now identified as the most likely confounding variable for both the v0.2.12 and v0.2.14 results.
+
+**Hypothesis for v0.2.12:** The mock LLM provider returned canned or pre-seeded response data during extraction queries. Because the mock was initialized with KB context (from ticket/cp_t010, cp_t011, and other session entries), the "extraction" output was not derived from the input text at all — it was the mock returning its pre-loaded KB state. Under this hypothesis, the contamination finding from v0.2.12 is not evidence of a Librarian design defect; it is evidence that a mock LLM returns mock data. The contamination pattern would be an artifact of the test infrastructure, not a bug in iranti_ingest.
+
+**Hypothesis for v0.2.14:** The mock LLM, updated or reconfigured in v0.2.14, no longer returns canned KB values. Instead, it returns empty or null responses for most extraction queries (especially for prose input). The `extractedCandidates=0` result under prose input is the mock returning nothing, not the Librarian failing to parse the text. Under structured key:value syntax, the mock LLM may pattern-match on the explicit key names and return something non-null, which is why extraction partially succeeds under that format.
+
+**Combined interpretation:** Neither the v0.2.12 nor the v0.2.14 result reflects the behavior of iranti_ingest under real-world conditions, because neither evaluation used a real LLM provider. Both sets of results are artifacts of mock LLM behavior, which is by definition not representative of production extraction quality.
+
+### 9.5 Revised Conclusion
+
+The original conclusion in Section 7 states: "The co-occurrence pattern gives rise to a KB contamination hypothesis... Regardless of cause, the 25% extraction accuracy observed in B6 is insufficient for deployments requiring reliable text-to-KB conversion."
+
+This conclusion must be revised.
+
+**The v0.2.12 contamination finding should be treated as plausibly a mock LLM artifact.** The finding cannot be confirmed or denied on a live LLM provider until the instance is configured with a real provider. The v0.2.12 contamination conclusion is downgraded from **confirmed defect** to **plausible mock artifact pending real-provider retest**.
+
+Specifically:
+- The contamination hypothesis (Section 5.2) remains a hypothesis, but the weight of evidence for it has decreased. It is now at least equally likely that the pattern reflected mock LLM behavior rather than Librarian design behavior.
+- The 0/4 accuracy figure from v0.2.12 cannot be attributed to the Librarian pipeline's extraction mechanism with confidence, because the LLM step in that pipeline was not functioning as a real LLM.
+- The 2/4 result from v0.2.14 (under structured syntax) suggests that, with a functioning LLM, extraction may be more capable than v0.2.12 implied. However, the coverage gap (affiliation and previous_employer consistently not extracted) remains unexplained.
+
+**What remains valid from the original paper:**
+- The observation that `iranti_write` and `iranti_ingest` are different code paths with different reliability characteristics remains valid and is unaffected by the confound.
+- The recommendation in Section 5.3 — that benchmarks using `iranti_ingest` must verify written values against ground truth — remains valid regardless of LLM provider.
+- The recommended follow-up experiments in Section 5.4 remain valid. Item 1 (fresh KB ingest test) should now be extended to include: *run on a real LLM provider, not mock*.
+
+### 9.6 Required Next Step
+
+A fair evaluation of iranti_ingest requires running with a real LLM provider (e.g., `LLM_PROVIDER=openai` or equivalent). Until that condition is met, B6 cannot report a valid accuracy estimate for the iranti_ingest pipeline. The benchmark track should be marked **incomplete — pending real-provider retest** rather than concluded.
 
 ---
 

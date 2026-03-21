@@ -242,3 +242,49 @@ For B2: execute the write phase in one agent invocation, fully terminate it, sta
 ---
 
 *This audit is a blocking document. The research program manager should treat the steps listed above as prerequisites, not suggestions, before any findings from this program are communicated externally.*
+
+---
+
+## v0.2.14 Rerun Audit — 2026-03-21
+
+### New critical risk: LLM_PROVIDER=mock confound
+
+The Iranti instance under test has been running with LLM_PROVIDER=mock throughout the entire benchmarking program (v0.2.12 and v0.2.14). Any benchmark that exercises an LLM-dependent Iranti subsystem (notably iranti_ingest, iranti_attend, and potentially iranti_observe's entity detection) may be testing mock LLM behavior rather than production LLM behavior. This is a critical confound that was not identified during the v0.2.12 program.
+
+**Affected findings:**
+
+- **B6 (ingest):** The contamination finding from v0.2.12 (verbatim KB entry values written as extracted facts) must be treated as potentially a mock artifact. In v0.2.12, the mock returned canned KB data; in v0.2.14, the mock returns empty (extractedCandidates=0). The difference in behavior across versions tracks the mock implementation change, not the production Librarian extraction logic. The v0.2.12 finding is reclassified from "confirmed critical defect" to "plausible mock artifact — requires retest with real LLM provider." The controlled isolation contrast (diana_voronova vs kai_bergstrom) retains its internal consistency but cannot be attributed to production behavior until the real LLM provider is tested.
+
+- **B11 (attend):** The classifier fix observed in v0.2.14 (no more classification_parse_failed; shouldInject=true with correct reasoning) may reflect a mock-to-mock behavioral change rather than a production pipeline fix. The reliability of this improvement under a real LLM provider is untested.
+
+- **B11 (observe):** The auto-detection failure (detectedCandidates=0 in both v0.2.12 and v0.2.14) may be a mock artifact. Whether iranti_observe's entity detection functions correctly under a real LLM provider is unknown.
+
+**Recommendation:** Configure the instance with a real LLM provider (OpenAI or Anthropic) and rerun B6, B11-attend, and B11-observe before publishing conclusions about these capabilities. This is now a blocking prerequisite for any external communication about ingest, attend, or observe findings.
+
+### New noise entry finding
+
+A KB entry user/main/favorite_city (confidence 92) is present in the instance and is appearing in retrieval result slots across multiple benchmarks in the v0.2.14 rerun, including B11. This entry appears to be session memory written by Iranti's own memory infrastructure (not by benchmark writes). Its presence contaminates retrieval rankings by consuming result slots that should be occupied by benchmark-relevant entities.
+
+This finding has two reproducibility implications:
+
+1. **Benchmark isolation is not achieved by namespace strategy alone.** If Iranti's memory infrastructure writes to the same KB namespace used by benchmarks, isolation requires either explicit cleanup of infrastructure-written entries before each trial or a namespace configuration that prevents infrastructure writes from reaching the benchmark namespace.
+
+2. **KB state documentation is incomplete.** The KB state at the start of each trial must include infrastructure-written entries, not only benchmark-written entries. Current trial records do not document the presence of infrastructure entries such as user/main/favorite_city.
+
+### iranti_search runtime crash (v0.2.14)
+
+iranti_search now crashes before returning results (spread/iterator error; pgvector still unreachable). This is a regression from v0.2.12, where iranti_search returned degraded but observable results (vectorScore=0, partial TF-IDF retrieval). The v0.2.14 crash affects B4 and B9 directly.
+
+**Reproducibility impact:** Any replication attempt on v0.2.14 will observe this crash rather than the v0.2.12 degraded-but-observable behavior. The v0.2.12 mechanism investigation findings (vectorScore=0 across all entries; TF-IDF degradation for non-unique terms) were produced under a different runtime state and cannot be reproduced on v0.2.14. The crash is itself reproducible on v0.2.14, but it constitutes a different failure mode than what was characterized in the v0.2.12 structural finding.
+
+**Updated disposition for Step 8 (B4 re-run under controlled indexing state):** The prior step required confirming the indexing state and re-running the B4 search arm after indexing stabilization. This step is now blocked by the runtime crash. Step 8 cannot be executed on v0.2.14 until the crash is resolved. The step remains on the critical path but is currently unexecutable.
+
+### Updated disposition table
+
+| Benchmark | v0.2.12 reproducibility status | v0.2.14 change | Updated status |
+|-----------|-------------------------------|----------------|----------------|
+| B4 | Not reproducible (KB-state-dependent; indexing state unknown) | iranti_search crashes before returning results | Worse — crash blocks any replication attempt |
+| B6 | Not reproducible (fresh-KB test not run; mechanism unobserved) | LLM_PROVIDER=mock confirmed as confound; extractedCandidates=0 | Primary finding reclassified — mock confound is new blocking issue |
+| B9 | Write-only finding reproducible; retrieval side untested | Unchanged (iranti_search crash noted) | Unchanged |
+| B11 attend | Not reproducible (classification_parse_failed; n=1) | Classifier fix observed; reproducibility of fix under real LLM untested | Partial improvement — mock confound still applies |
+| B11 observe | Not reproducible (auto-detection failure; mechanism unknown) | Unchanged (detectedCandidates=0) | Unchanged — mock confound may explain failure |

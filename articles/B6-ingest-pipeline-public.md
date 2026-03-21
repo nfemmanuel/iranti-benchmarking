@@ -7,6 +7,10 @@
 
 ---
 
+> **Update (v0.2.14, 2026-03-21):** The contamination finding from this article has been complicated by a new discovery. The Iranti test instance uses a mock LLM provider, which may have caused the earlier contamination pattern. In v0.2.14, contamination was not reproduced, but a new coverage failure appeared. We cannot yet evaluate iranti_ingest fairly until a real LLM provider is configured. See the formal paper for full details.
+
+---
+
 ## The Question We're Actually Asking
 
 Writing facts to Iranti one at a time is precise but slow. The alternative is to hand it a chunk of text and let it figure out the facts itself. This is what the `iranti_ingest` command does — it takes a passage of text, runs it through an internal extraction process (called the Librarian), and writes the extracted facts to the knowledge base.
@@ -121,6 +125,63 @@ The B6 raw results make a strong case for contamination based on the matching pa
 `iranti_ingest` is excluded from benchmark trials until this is understood. All writes in the benchmark program will continue to use `iranti_write` for structured facts. The ingest pipeline needs a dedicated investigation before it can be treated as a reliable data entry path.
 
 This is an honest finding. The B6 result is not a minor caveat — it is a significant quality concern about a core pipeline feature. Users of Iranti who rely on text ingestion to populate their knowledge bases should be aware of this before drawing conclusions from what they find stored.
+
+---
+
+## Update: What the v0.2.14 Rerun Told Us (And Why It Changes Things)
+
+After this article was published, we ran the same test against Iranti v0.2.14. The result was different — but not in a simple "better" or "worse" way. It revealed something about the original test that changes how we should read the findings above.
+
+### What the rerun found
+
+The contamination pattern — where every wrong value matched something already in the KB — did not appear in v0.2.14. So the specific claim that "the Librarian is pulling in existing KB data and substituting it for what the text says" was not reproduced.
+
+Instead, a different problem showed up: when we submitted the same prose passage, the extractor returned zero extracted candidates. Nothing was extracted at all. The pipeline didn't produce wrong values; it produced no values.
+
+When we reformatted the input as structured key:value pairs instead of prose, the extractor did extract some facts — two out of four, both correctly. The other two keys (affiliation and previous employer) were not extracted under any format we tried.
+
+### The thing we missed the first time
+
+Here's the part that changes the interpretation of the original article.
+
+Both evaluations — v0.2.12 and v0.2.14 — ran with the Iranti instance configured to use a **mock LLM provider**. That means the "LLM" inside the Librarian was not a real language model. It was a test stub.
+
+In v0.2.12, the mock LLM appears to have returned canned data from the KB when asked to extract facts. That produced the contamination pattern we described above — every wrong value matched a KB entry because the mock was echoing KB state back at us, not because the Librarian has a design defect that causes it to pull in other entities' data.
+
+In v0.2.14, the mock LLM appears to behave differently — returning empty responses for most queries, which is why extraction returns nothing for prose input.
+
+Neither result tells us what the Librarian actually does when backed by a real LLM.
+
+### What this means for what we claimed
+
+The original article said: "This is contamination. The ingest pipeline doesn't appear to be reading only the document you give it."
+
+That claim needs to be walked back. It may have been wrong.
+
+The contamination pattern was real — we described it accurately. But its cause was probably the mock LLM behaving like a mock, not the Librarian systematically corrupting extractions. Those are very different problems. One is a fundamental architectural issue; the other is a testing infrastructure issue.
+
+We cannot confirm or deny the contamination hypothesis on the actual production-path code until the instance is configured with a real LLM provider. Until that happens, we don't know what `iranti_ingest` actually does.
+
+### What we can say now
+
+**Still accurate:**
+- The original test ran as described. The numbers (1/4 accuracy, specific wrong values) are correct for what was tested.
+- `iranti_write` and `iranti_ingest` are different code paths. The structured-write results from B1–B4 say nothing about ingest quality.
+- A real-provider test is required before any conclusion about ingest accuracy is valid.
+
+**Downgraded:**
+- The contamination claim is now "plausible mock artifact, not confirmed defect." We believe the original v0.2.12 errors were caused by mock LLM behavior, not by the Librarian design.
+- The severity characterization from this article ("significant quality concern about a core pipeline feature") was premature given the testing conditions. We should have checked the LLM provider configuration before publishing.
+
+**Still open:**
+- What does iranti_ingest actually do with a real LLM? We don't know yet.
+- Why were affiliation and previous_employer not extracted under any tested phrasing in v0.2.14? That gap is unexplained and warrants investigation even after a real-provider test is run.
+
+### The honest summary
+
+We published a finding that was more confident than the evidence warranted. The contamination pattern was striking and the hypothesis was plausible — but we did not verify that the underlying LLM was functioning as a real model before interpreting the results. That was an error in the evaluation process.
+
+The rerun did not rescue the original finding. It complicated it. The B6 benchmark track is now marked incomplete, pending a retest with a real LLM provider. When that test runs, we will publish the results here.
 
 ---
 

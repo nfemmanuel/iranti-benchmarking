@@ -138,6 +138,12 @@ The B9 finding stands apart from the B4 finding: B4's search failure may be an i
 
 ---
 
+---
+
+**Update (v0.2.14, 2026-03-21):** This finding is unchanged in v0.2.14. Relationship writes still succeed; agent-accessible relationship reads still do not exist. One additional note: `iranti_search` now crashes with a runtime error when called in conditions similar to the B9 search arm, rather than returning zero results as it did in v0.2.12. The substantive finding is the same — relationships are not indexed and not retrievable through the MCP interface — but the failure mode has become noisier. The formal paper also corrects an endpoint notation error from v0.2.12: the working REST path is `/kb/related/{entityType}/{entityId}`, not `/relationships` as previously stated. See the formal paper addendum for the full version comparison table.
+
+---
+
 *This article is part of the Iranti Benchmark Journal, a running record of the Iranti benchmarking program. Each entry documents what was tested, what was found, what wasn't found, and why the interpretation is bounded. Formal technical papers accompany each entry.*
 
 *Full technical writeup: `papers/B9-entity-relationships-paper.md`*

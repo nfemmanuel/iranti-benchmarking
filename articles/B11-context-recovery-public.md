@@ -136,4 +136,14 @@ Both findings are real. Neither should be overstated.
 
 ---
 
+**Update (v0.2.14, 2026-03-21):** One capability improved in v0.2.14 — the `iranti_attend` classifier no longer crashes and now correctly identifies that memory injection is needed. This is a real fix. In v0.2.12, the classifier silently failed and defaulted to not injecting anything. In v0.2.14, it evaluates the context, recognizes that a memory reference is present, and correctly decides to proceed with injection (confidence=0.93). The decision layer works.
+
+However, the content it injects is still wrong, because entity auto-detection remains broken. The original finding from v0.2.12 — that `iranti_observe` cannot identify relevant entities from context text alone — is unchanged in v0.2.14. When `iranti_attend` fires and asks "what should I inject?", the retrieval layer still can't find the right entity on its own. So the tool now makes the right call; it just can't yet find the right facts to back it up.
+
+There's also a new observation worth flagging: an irrelevant entry (`user/main/favorite_city`) appears in retrieval results that should contain only benchmark-relevant facts. This entry appears to have been written by Iranti itself during a prior session, not by anything in this benchmark. It's consuming result slots and slightly reducing measured coverage. We're treating this as a methodology issue to clean up before further reruns.
+
+The short version: partial credit. One layer fixed, one layer still broken. See the formal paper addendum for the full sub-test breakdown and version comparison table.
+
+---
+
 *This report is part of the Iranti Benchmarking Program. All results are from controlled evaluations using the installed Iranti instance. Raw results and full methodology are available in the accompanying technical paper.*

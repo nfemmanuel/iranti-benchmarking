@@ -1,7 +1,7 @@
 # Context Recovery via iranti_observe: A Controlled Evaluation of Hint-Assisted KB Recall and Auto-Detection Failure
 
 **Status:** Working paper — not peer-reviewed
-**Version:** 0.1 (Initial draft, 2026-03-21)
+**Version:** 0.2 (v0.2.14 rerun addendum, 2026-03-21)
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Paper Author)
 **Benchmark track:** B11 — Context Recovery (iranti_observe)
 **Model under test:** Iranti (installed instance, local) — iranti_observe
@@ -331,3 +331,60 @@ See `results/raw/B11-context-recovery.md`.
 ## Appendix B: Benchmark Protocol
 
 See `benchmarks/B11-context-recovery/benchmark.md`.
+
+---
+
+## Addendum: v0.2.14 Rerun (2026-03-21)
+
+### Version History Table
+
+| Sub-test | v0.2.12 | v0.2.14 | Change |
+|----------|---------|---------|--------|
+| iranti_observe with hint | 5/6 (83%) | 4/5 (80%) | Slight decrease; noise entry competes for result slots |
+| iranti_observe auto-detection | 0/6, detectedCandidates=0 | 0/5, detectedCandidates=0 | Unchanged — still fails |
+| iranti_attend natural heuristic | classification_parse_failed_default_false, shouldInject=false | shouldInject=true, confidence=0.93, method=llm, explanation=memory_reference_detected | Fixed — classifier now works |
+| iranti_attend forceInject=true | 5/6 (83%) | 4/5 (80%) | Slight decrease; noise entry competes for result slots |
+
+### Rerun Findings
+
+**iranti_observe with hint (80%):** Recovery with explicit entity hint remained near the v0.2.12 level, but a noise entry now consumes one result slot in the returned set. The entry `user/main/favorite_city` (confidence=92) appeared in results that should have contained only entities relevant to the benchmark task. This reduced effective coverage from 5/6 to 4/5. The noise entry is discussed further below.
+
+**iranti_observe auto-detection (unchanged):** `detectedCandidates=0` in v0.2.14, identical to v0.2.12. The entity auto-detection mechanism remains non-functional. Hint-dependent operation continues to be the only reliable path for context recovery.
+
+**iranti_attend natural heuristic (fixed):** This is the substantive improvement in v0.2.14. In v0.2.12, the `iranti_attend` classifier produced `classification_parse_failed_default_false` and `shouldInject=false` — meaning it crashed silently and defaulted to not injecting memory. In v0.2.14, the classifier returns:
+
+```
+shouldInject: true
+confidence: 0.93
+method: llm
+explanation: memory_reference_detected
+```
+
+The parse failure is gone. The classifier now correctly identifies that the context contains a memory reference and that injection is warranted. This is a genuine fix to a real bug.
+
+However, the fix is partial in effect. The classifier correctly decides *that* injection should occur, but the content it injects is still wrong. The injected facts come from the `iranti_observe` retrieval layer, which still fails at entity auto-detection. The result is that `iranti_attend` in natural heuristic mode now correctly fires but injects the noise entry (`user/main/favorite_city`) rather than the benchmark-relevant entity facts. The decision layer is fixed; the retrieval layer is not.
+
+**iranti_attend forceInject=true (80%):** Consistent with the hint-assisted observe result. Same noise slot competition reduces coverage from 5/6 to 4/5.
+
+### New Finding: Noise Entry Slot Competition
+
+A `user/main/favorite_city` entry with confidence=92 is present in the Iranti KB and appears in retrieval results across the B11 test cases. This entry was not written by any B11 benchmark operation. It appears to be session memory written by Iranti itself during a prior session, not a benchmark artifact.
+
+This is a methodology concern for two reasons:
+
+1. **Slot competition:** With a small `maxFacts` cap, the noise entry displaces legitimate benchmark facts, reducing measured coverage. The 80% figures in v0.2.14 likely reflect this displacement rather than a genuine capability regression relative to v0.2.12.
+
+2. **Cross-benchmark contamination:** If this entry surfaces in other benchmark tracks, it may distort results there as well. This should be investigated across the full B-series results before any cross-track comparisons are drawn.
+
+The entry should be treated as a methodological artifact requiring remediation (removal from the KB) before further reruns are conducted.
+
+### Revised Composite Verdict
+
+v0.2.14 represents partial improvement relative to v0.2.12:
+
+- The `iranti_attend` classifier is genuinely fixed. The decision layer now works.
+- Entity auto-detection remains broken. The retrieval layer is unchanged.
+- The noise entry introduces a new methodology concern that affects measured coverage across both observe and attend sub-tests.
+- Recovery rates (80% with hint/forceInject) are nominally lower than v0.2.12 (83%), but this appears to reflect noise slot competition rather than capability regression.
+
+The system is closer to end-to-end context recovery than it was in v0.2.12, but one critical layer (entity auto-detection) must still be repaired before natural-heuristic attend produces correct output.
