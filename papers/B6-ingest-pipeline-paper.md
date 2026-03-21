@@ -1,0 +1,270 @@
+# End-to-End Text Ingestion Accuracy in an Agentic Knowledge Base: A Controlled Evaluation of the Iranti Librarian Pipeline
+
+**Status:** Working paper — not peer-reviewed
+**Version:** 0.1 (Initial draft, 2026-03-21)
+**Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
+**Benchmark track:** B6 — iranti_ingest Text Pipeline
+**Model under test:** Iranti `iranti_ingest` pipeline (installed instance, local)
+**Infrastructure:** Iranti instance at localhost:3001
+
+---
+
+## Abstract
+
+We evaluate the end-to-end accuracy of Iranti's `iranti_ingest` text ingestion pipeline, which accepts a natural language passage and uses an internal Librarian agent to extract structured facts and write them to the knowledge base. A single researcher profile passage was submitted, containing four canonically testable facts: institutional affiliation, publication count, previous employer and dates, and primary research focus. Ground truth was derived directly from the input text. The Librarian extracted four candidates and wrote all four; however, only one of the four extracted values was correct, yielding an extraction accuracy of 1/4 (25%). The three incorrect extractions each correspond to a value present in an existing knowledge base entry written earlier in the session. This co-occurrence pattern gives rise to a KB contamination hypothesis: the Librarian may be incorporating existing KB context during extraction, causing values from prior entities to substitute for values in the input text. The contamination hypothesis is not confirmed — the internal extraction mechanism is not directly observable — and an alternative pure hallucination hypothesis cannot be excluded. A further interpretive caveat is that Librarian grounding in existing KB data may be intentional design behavior, not a failure mode. Regardless of cause, 25% extraction accuracy is insufficient for use cases requiring reliable text-to-KB conversion. All confirmed results in prior benchmarks (B1–B4) used structured writes via `iranti_write`; `iranti_ingest` should not be assumed equivalent in reliability.
+
+---
+
+## 1. Introduction
+
+Information extraction — the conversion of unstructured natural language text into structured, queryable records — is a foundational capability for any knowledge base system that must ingest real-world documents. In the context of memory-augmented LLM deployments, text ingestion is especially important: agents frequently encounter facts stated in prose (meeting notes, research profiles, status updates) and must translate these facts into persistent KB entries for later retrieval.
+
+Iranti provides `iranti_ingest` as its primary text-to-KB pipeline. The pipeline delegates extraction to an internal Librarian agent, which reads the input text, identifies candidate facts, and writes them to the KB using the same `iranti_write` pathway as structured writes. The B6 benchmark asks whether this automated pipeline produces the same results as a structured write — that is, whether the extracted values match what is stated in the input text.
+
+The research question is:
+
+> Does `iranti_ingest` accurately extract factual claims from a clearly structured natural language passage and write them to the KB with correct values?
+
+A secondary question concerns failure modes:
+
+> When extraction fails, do the incorrect extracted values reveal a pattern that suggests a specific failure mechanism?
+
+The B6 evaluation tests these questions against a single researcher profile passage with controlled ground truth. Given the small scale of this evaluation (n=1), conclusions must be treated as preliminary and hypothesis-generating rather than confirmatory.
+
+---
+
+## 2. Related Work
+
+### 2.1 Named Entity Recognition and Information Extraction Benchmarks
+
+The Message Understanding Conference (MUC) evaluations (Grishman and Sundheim, 1996) established the foundational benchmark paradigm for information extraction: a system is given a natural language text, asked to extract entities and relations, and evaluated against a human-annotated gold standard. MUC-3 through MUC-7 evaluated slot-filling tasks in which systems must correctly identify the value for a specific attribute (e.g., the perpetrator, the victim, the location of an incident). The MUC paradigm directly motivates the B6 evaluation design: we construct a ground truth annotation and measure whether the extracted values match.
+
+The Automatic Content Extraction (ACE) program (Doddington et al., 2004) extended MUC to entity mention detection, coreference resolution, and relation extraction. ACE established that extraction accuracy varies substantially by entity type and relation type, and that systems that perform well on one type may perform poorly on another. This motivates testing multiple attribute types (numeric counts, named institutions, temporal ranges, categorical labels) rather than a single attribute type.
+
+### 2.2 Slot Filling and Knowledge Base Population
+
+The TAC Knowledge Base Population (KBP) shared task (Ji and Grishman, 2011; Surdeanu, 2013) is the most direct precursor to B6: systems are given a query entity, a large document collection, and a set of slot types, and must find the correct slot fill values in the documents. KBP results consistently show that automated systems achieve moderate accuracy on common slot types (50–70% in competitive submissions) but degrade significantly on rare slot types, temporally scoped values, and fine-grained numerical attributes.
+
+The B6 evaluation is substantially simpler than TAC KBP: the source passage is a single, self-contained document with no competing passages, and all four tested attributes are clearly stated in the text without negation, coreference, or ambiguity. Under these conditions, a well-functioning extraction pipeline should achieve near-ceiling accuracy. The 25% accuracy observed in B6 is therefore especially notable.
+
+### 2.3 Retrieval-Augmented Generation and Grounding
+
+A recurring failure mode in retrieval-augmented generation (RAG) is context confusion: the generator model attends to retrieved context that partially conflicts with the input query, producing a blend of query-relevant and context-relevant text (Shi et al., 2023; Longpre et al., 2021). In RAG settings, this occurs because the retrieval step introduces additional context (retrieved passages) that competes with the query context for the model's attention.
+
+An analogous failure mode is conceivable in the Iranti Librarian's extraction process: if the Librarian performs a KB retrieval step to ground its extractions in existing knowledge, the retrieved context may compete with the input passage and introduce values from existing entities. This is the mechanism underlying the KB contamination hypothesis developed in Section 5. Whether this characterization is accurate — and whether any such grounding behavior is a design feature or an error — cannot be determined from the available evidence.
+
+### 2.4 MemGPT Ingest and Memory Update
+
+MemGPT (Packer et al., 2023) includes a memory management module that processes LLM conversation history to identify facts that should be stored in persistent memory. The MemGPT memory update process is LLM-mediated: the model decides what to write, how to phrase it, and how to handle conflicts with existing memory. This design is similar in kind to Iranti's Librarian-mediated ingest, in that extraction and write decisions are delegated to an LLM agent rather than performed by a rule-based parser. MemGPT does not benchmark extraction accuracy against ground truth in the MUC/KBP sense; it evaluates end-to-end task performance rather than extraction fidelity. B6 applies a stricter ground-truth measurement to the Iranti equivalent of this component.
+
+---
+
+## 3. Methodology
+
+### 3.1 Input Passage
+
+A single researcher profile passage was constructed for a fictional researcher entity (`researcher/diana_voronova`). The passage is self-contained, clearly phrased, and contains no negations, ambiguous referents, or conflicting claims:
+
+> Dr. Diana Voronova is an Associate Professor in the Department of Computer Science at Carnegie Mellon University, where she leads the Robust Learning Lab. She completed her postdoctoral fellowship at MIT in 2019 before joining CMU. Prior to her postdoc, she worked as a Research Scientist at Google Brain from 2016 to 2018. Diana has published 38 peer-reviewed papers, including 12 at top venues such as NeurIPS, ICML, and ICLR. Her primary research focus is out-of-distribution generalization, with secondary interests in domain adaptation and dataset shift. She received her PhD from ETH Zurich in 2016 under the supervision of Prof. Bernhard Scholkopf.
+
+This passage was selected because all four test attributes are stated clearly and unambiguously:
+- Affiliation is stated in the first sentence.
+- Publication count (38) is stated numerically in the fourth sentence.
+- Previous employer (Google Brain, 2016–2018) is stated in the third sentence.
+- Research focus (out-of-distribution generalization) is stated as "primary research focus" in the fifth sentence.
+
+### 3.2 Ground Truth
+
+| Key | Ground Truth Value |
+|-----|--------------------|
+| affiliation | Carnegie Mellon University |
+| publication_count | 38 |
+| previous_employer | Google Brain (2016–2018) |
+| research_focus | out-of-distribution generalization (primary); domain adaptation (secondary) |
+
+### 3.3 Protocol
+
+The passage was submitted to the installed Iranti instance via:
+
+```
+iranti_ingest(entity="researcher/diana_voronova", content=<passage>, confidence=85)
+```
+
+The ingest response included a count of extracted candidates, written facts, rejections, escalations, and skipped-malformed items, as well as the list of keys and write statuses. Each written fact was then retrieved by querying the KB and the extracted value was compared against ground truth.
+
+### 3.4 Metrics
+
+- **Extraction accuracy:** number of correctly extracted values / total tested values
+- **Ingest pipeline completeness:** all expected keys extracted and written
+- **Error classification:** by error type (numeric error, institution name error, temporal scope error, content substitution error)
+
+---
+
+## 4. Results
+
+### 4.1 Ingest Pipeline Response
+
+```
+iranti_ingest(entity="researcher/diana_voronova", content=<passage>, confidence=85)
+
+Response:
+  extractedCandidates: 4
+  written: 4
+  rejected: 0
+  escalated: 0
+  skippedMalformed: 0
+  facts:
+    - key: affiliation         → created
+    - key: publication_count   → created
+    - key: previous_employer   → created
+    - key: research_focus      → created
+```
+
+The pipeline extracted exactly four candidates corresponding to the four test keys and wrote all four without rejection. Mechanically, the ingest pipeline completed successfully.
+
+### 4.2 Extracted Values vs. Ground Truth
+
+| Key | Ground Truth | Extracted | Confidence | Correct |
+|-----|-------------|-----------|------------|---------|
+| affiliation | Carnegie Mellon University | {institution: "Carnegie Mellon University"} | 92 | Yes |
+| publication_count | 38 | {count: 31} | 91 | No |
+| previous_employer | Google Brain (2016–2018) | {institution: "Google DeepMind", from: 2019, to: 2022} | 89 | No |
+| research_focus | out-of-distribution generalization | {primary: "reinforcement learning", secondary: "robotics"} | 87 | No |
+
+**Extraction accuracy: 1/4 (25%)**
+
+### 4.3 Error Analysis
+
+**Error 1 — publication_count (extracted: 31; ground truth: 38)**
+
+The input text states "published 38 peer-reviewed papers." The extracted value is 31. The integer 31 corresponds to the `publication_count` of `researcher/lena_gross`, an entity written to the same KB earlier in the same session.
+
+**Error 2 — previous_employer (extracted: Google DeepMind, 2019–2022; ground truth: Google Brain, 2016–2018)**
+
+The input text states "Research Scientist at Google Brain from 2016 to 2018." Two separable errors are present: (a) the institution name was rendered as "Google DeepMind" rather than "Google Brain," and (b) the temporal range was rendered as 2019–2022 rather than 2016–2018. Note that Google Brain merged into Google DeepMind in 2023; the name substitution may reflect an LLM normalization of the historical name to the current organizational identity. However, the date error (2019–2022) is not explained by name normalization. The entity `researcher/aisha_okonkwo`, written earlier in this session, has `previous_employer = Google DeepMind (2020–2023)` — an approximate match to the extracted date range.
+
+**Error 3 — research_focus (extracted: reinforcement learning, robotics; ground truth: out-of-distribution generalization, domain adaptation)**
+
+The input text states "primary research focus is out-of-distribution generalization, with secondary interests in domain adaptation and dataset shift." The extracted value ("reinforcement learning," "robotics") bears no textual relationship to the input passage. Entries in the KB from a prior session (ticket/cp_t010 and ticket/cp_t011, the oldest entries in the KB) contain exactly this research focus.
+
+### 4.4 Contamination Evidence Summary
+
+| Error | Text value | Extracted value | Matching KB entry |
+|-------|-----------|-----------------|-------------------|
+| publication_count | 38 | 31 | researcher/lena_gross (publication_count=31) |
+| previous_employer dates | 2016–2018 | 2019–2022 | researcher/aisha_okonkwo (approx: 2020–2023) |
+| research_focus | out-of-distribution generalization | reinforcement learning, robotics | ticket/cp_t010, ticket/cp_t011 |
+
+All three incorrect values co-occur with values present in existing KB entries. The three co-occurrences in a four-item test constitute a notable pattern; however, the interpretation of this pattern is discussed with appropriate caution in Section 5.
+
+### 4.5 Confidence Observations
+
+The Librarian assigned confidence scores of 87–92 to all four extracted facts, including the three incorrect ones. The input was submitted with `confidence=85`. The fact that the Librarian returned higher confidence values for incorrect extractions than was provided in the input call is notable: the pipeline does not appear to self-assess extraction uncertainty or calibrate confidence based on extraction difficulty.
+
+---
+
+## 5. Discussion
+
+### 5.1 Accuracy in Context
+
+The 25% extraction accuracy (1/4) must be interpreted carefully given the conditions under which it was observed. The input passage was clearly phrased, factually unambiguous, and entirely self-contained. Under these conditions, a rule-based pattern extractor or a competent LLM prompted in extraction mode would be expected to achieve significantly higher accuracy. The 25% result is therefore not attributable to passage complexity or ambiguity. The failure is in the extraction process itself.
+
+For reference, competitive systems in the TAC KBP shared task (a substantially more difficult task) typically achieve 50–70% slot-fill accuracy on common entity types. The B6 result falls well below this range for a task that is, in structural terms, substantially easier.
+
+### 5.2 The KB Contamination Hypothesis
+
+The co-occurrence of all three incorrect values with existing KB entries gives rise to the hypothesis that the Librarian incorporates existing KB context during extraction and that this context contaminated the extraction output. Under this hypothesis, the Librarian retrieved semantically similar entities from the KB (other researcher entries with similar keys), and the retrieved values partially substituted for the values stated in the input text.
+
+This hypothesis is consistent with a Retrieval-Augmented Generation architecture in the extraction pathway: before or during extraction, the Librarian retrieves existing KB context to ground its output. The grounding step, intended to improve consistency, instead introduced value substitution errors for three of four attributes.
+
+**This hypothesis is not confirmed.** The internal behavior of the Librarian agent is not directly observable from the outside. Two alternative explanations cannot be excluded:
+
+1. **Pure LLM extraction error without KB retrieval:** The Librarian may have hallucinated values independently of any KB retrieval step. The co-occurrence with KB values could be coincidence, particularly if the KB values (e.g., "reinforcement learning") are common LLM prior associations for researcher profiles.
+
+2. **Intentional grounding design:** The Librarian may be designed to retrieve and incorporate existing KB context during extraction, as a mechanism for consistency and disambiguation. Under this interpretation, the behavior is not a bug but a design choice — the Librarian is prioritizing consistency with existing KB facts over strict fidelity to the input text. Whether this constitutes correct behavior depends on the intended semantics of `iranti_ingest`.
+
+The contamination hypothesis should be the subject of controlled follow-up experiments before any conclusion is drawn (see Section 5.4).
+
+### 5.3 Implications for Benchmark Design
+
+Prior benchmarks in this program (B1–B4) used structured writes via `iranti_write` to populate the KB. These writes achieved 100% accuracy in committing the intended values. The B6 result shows that `iranti_ingest` is not equivalent to `iranti_write` in accuracy. Any benchmark that uses `iranti_ingest` to establish KB state cannot assume that the KB contains the values stated in the input text; it must verify the written values against ground truth before proceeding with retrieval evaluation.
+
+Furthermore, values written by `iranti_ingest` — including the incorrect values written in the B6 trial — remain in the KB and are visible to subsequent operations, including the B4 search-based retrieval tests (where lena_gross's publication_count=31 was a retrieval target). If ingest-written values are incorrect, downstream evaluation results that depend on those values will be correspondingly unreliable.
+
+### 5.4 Recommended Follow-up Experiments
+
+To adjudicate between the contamination and pure-hallucination hypotheses, and to characterize ingest accuracy more broadly, the following experiments are recommended:
+
+1. **Fresh KB ingest test:** Submit the same passage to a fresh Iranti instance with no prior KB entries. If the contamination hypothesis is correct, accuracy should improve on the fresh instance (no existing entries to contaminate). If accuracy remains poor, the pure-hallucination hypothesis is supported.
+
+2. **Multiple passage test:** Submit 10+ distinct passages and evaluate extraction accuracy across all. This will provide a more stable estimate of mean accuracy and variance.
+
+3. **Controlled contamination test:** Write a small number of KB entries with known values, then submit a passage whose facts differ from the KB entries in specific ways. Measure whether the extracted values shift toward the KB entries.
+
+4. **Confidence calibration test:** Compare the Librarian's extraction confidence scores for correct vs. incorrect extractions at scale. A well-calibrated extractor should assign lower confidence to uncertain extractions.
+
+---
+
+## 6. Threats to Validity
+
+### 6.1 Single Trial
+
+The entire evaluation rests on one text passage, one entity, and four attribute values. No replication, no variance estimate, and no significance testing are possible. The reported accuracy (25%) should be treated as an observation from a single instance, not as an estimate of the pipeline's mean accuracy over a population of inputs.
+
+### 6.2 Contamination is a Hypothesis, Not a Confirmed Finding
+
+The KB contamination hypothesis is supported by the co-occurrence pattern described in Section 4.4. However, the internal mechanism of the Librarian is not observable. The hypothesis cannot be confirmed or disconfirmed from the available evidence. Statements in this paper that describe contamination as an explanation (rather than a hypothesis) should be read with this caveat in mind.
+
+### 6.3 Intentional Grounding Behavior
+
+As noted in Section 5.2, the Librarian may be designed to ground its extractions in existing KB context. Under this interpretation, behavior that appears to be a failure from an extraction-accuracy standpoint may be correct behavior from a system-consistency standpoint. The B6 benchmark does not evaluate whether KB-grounded ingest is appropriate behavior in Iranti's intended use cases; it only evaluates fidelity to the input text. Stakeholders should consider whether the intended semantics of `iranti_ingest` are strictly extractive (text → KB) or include a KB-grounding step (text + KB → KB).
+
+### 6.4 Google Brain / Google DeepMind Name Normalization
+
+The institution name substitution (Google Brain → Google DeepMind) may reflect a legitimate historical normalization: Google Brain was merged into Google DeepMind in 2023. If the Librarian normalizes historical organization names to current names, this behavior may be intentional. However, the date error (2016–2018 → 2019–2022) cannot be explained by name normalization and constitutes an independent extraction failure. The two components of this error should be evaluated separately in follow-up tests.
+
+### 6.5 Confidence Inflation
+
+The observation that the Librarian returned confidence values (87–92) higher than the submitted input confidence (85) for incorrect extractions is potentially informative but cannot be analyzed rigorously from a single trial. Whether confidence inflation is systematic and whether it correlates with extraction errors requires a larger sample.
+
+### 6.6 Passage Representativeness
+
+The test passage is a researcher profile — a structured, formulaic text type. Extraction accuracy may differ substantially for less structured passage types (e.g., meeting notes, free-form status updates, news articles). The B6 result characterizes performance on one text type only.
+
+---
+
+## 7. Conclusion
+
+The B6 benchmark evaluates the accuracy of Iranti's `iranti_ingest` text ingestion pipeline against a clearly phrased, unambiguous single-passage ground truth. The pipeline mechanically succeeded: all four expected keys were extracted and written to the KB without rejection. However, only one of four extracted values (25%) matched the ground truth. The three incorrect extractions each co-occur with values present in existing KB entries written in the same session.
+
+The co-occurrence pattern gives rise to a KB contamination hypothesis — that the Librarian agent incorporates existing KB context during extraction and that this context introduced value substitution errors. This hypothesis is not confirmed. An alternative pure-hallucination explanation cannot be excluded, and the possibility that Librarian grounding in existing KB data is intentional system behavior must be acknowledged.
+
+Regardless of cause, the 25% extraction accuracy observed in B6 is insufficient for deployments requiring reliable text-to-KB conversion. Structured writes via `iranti_write` remain the reliable path for KB population in benchmarking contexts. The contamination hypothesis and the Librarian's grounding behavior warrant controlled follow-up before `iranti_ingest` is used as a KB population mechanism in experimental or production settings.
+
+---
+
+## 8. References
+
+Doddington, G., Mitchell, A., Przybocki, M., Ramshaw, L., Strassel, S., and Weischedel, R. (2004). The Automatic Content Extraction (ACE) Program — Tasks, Data, and Evaluation. *Proceedings of LREC 2004*.
+
+Grishman, R., and Sundheim, B. (1996). Message Understanding Conference — 6: A Brief History. *Proceedings of the 16th International Conference on Computational Linguistics (COLING 1996)*.
+
+Ji, H., and Grishman, R. (2011). Knowledge Base Population: Successful Approaches and Challenges. *Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics (ACL 2011)*.
+
+Longpre, S., Perisetla, K., Chen, A., Ramesh, N., DuBois, C., He, H., Beaumont, M., Dettmers, T., Roberts, A., Barua, A., and Raffel, C. (2021). Entity-Based Knowledge Conflicts in Question Answering. *Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing (EMNLP 2021)*.
+
+Packer, C., Fang, V., Patil, S. G., Nguyen, K., Wooders, A., and Gonzalez, J. E. (2023). MemGPT: Towards LLMs as Operating Systems. *arXiv:2310.08560*.
+
+Shi, F., Chen, X., Misra, K., Scales, N., Dohan, D., Chi, E., Schärli, N., and Zhou, D. (2023). Large Language Models Can Be Easily Distracted by Irrelevant Context. *Proceedings of the 40th International Conference on Machine Learning (ICML 2023)*.
+
+Surdeanu, M. (2013). Overview of the TAC2013 Knowledge Base Population Evaluation: English Slot Filling and Temporal Slot Filling. *Proceedings of the Sixth Text Analysis Conference (TAC 2013)*.
+
+---
+
+## Appendix A: Benchmark Specification
+
+See `benchmarks/B6-ingest-pipeline/benchmark.md`.
+
+## Appendix B: Raw Trial Records
+
+See `results/raw/B6-ingest-pipeline.md`.
