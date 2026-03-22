@@ -514,3 +514,57 @@ v0.2.16 represents substantial improvement relative to all prior versions.
 - `user/main/favorite_city` noise entry: slot-pollution behavior resolved. Revalidation confirms this entry no longer surfaces in iranti_attend or iranti_observe results. The entry persists in the KB as a local benchmark artifact (source=memory_regression_noise) but does not pollute retrieval results as of current revalidation.
 
 The two-layer decomposition from v0.2.14 is now resolved at both layers: the decision layer (should inject?) has been working since v0.2.14; the retrieval layer (what to inject?) is now fixed in v0.2.16.
+
+---
+
+## Addendum 4 — v6.0 Revalidation (2026-03-22)
+
+This addendum records the results of a targeted v6.0 revalidation pass against installed Iranti v0.2.16 (no new npm release; the upstream development branch at commit d03781a1 was referenced but not released). All prior v5.0 findings from Addendum 3 are maintained.
+
+### Slash-Value Defect: RETRACTED — Independently Confirmed
+
+The RETRACTED status of the slash-value defect claim (Section "Defect Revalidation" in Addendum 3) has been confirmed by a fresh benchmark repro against installed v0.2.16. All four retrieval paths were re-exercised against slash-bearing and URL-bearing fact values:
+
+| Retrieval path | Slash/URL value returned intact? |
+|----------------|----------------------------------|
+| iranti_query | PASS |
+| iranti_search | PASS — slash entities surface as top results |
+| iranti_observe (with hints) | PASS — full values returned; parse_error in debug is entity-extraction noise only |
+| iranti_attend (forceInject) | PASS — same as observe |
+
+This fresh repro independently corroborates the retraction recorded in Addendum 3. Additionally, upstream regression tests in the development branch (commit d03781a1 — `smoke_test.ts` and `memory-retrieval-regressions.ts`) include explicit tests for slash-value retrieval across all four paths, and all pass on the v0.2.16 codebase. The engineering team independently validated the same finding our benchmark revalidation showed: forward slash and URL characters in fact values do not cause retrieval loss. The RETRACTED status is now double-confirmed — by benchmark repro and by upstream regression testing.
+
+### user/main Noise Entry: RESOLVED — Independently Confirmed
+
+The `user/main/favorite_city` noise entry was previously documented as RESOLVED in Addendum 3 (no longer surfacing in retrieval results). This RESOLVED status is confirmed by the v6.0 revalidation pass. The entry remains in the KB (source tag: `memory_regression_noise`) but does not pollute benchmark retrieval slots. Separately, the upstream development branch (commit d03781a1) removed the write to `user/main` from `smoke_test.ts` entirely — confirming that the original entry was always a test artifact, never a product behavior. This is a write-side fix at the test level, consistent with the retrieval-side non-surfacing we already documented.
+
+### Auto-Detection Mechanism: Alias Index Lookup Clarified
+
+The v0.2.16 auto-detection result reported in Addendum 3 (`resolvedVia: "alias"`, confidence=0.82, detectedCandidates=1) has been reconfirmed in the v6.0 revalidation pass using a fresh observe call without entityHints on a context mentioning "lunar_api_v3":
+
+```json
+"detectedCandidates": 1,
+"matchedBy": "alias",
+"confidence": 0.82
+```
+
+Five of the six entity facts were returned (5/5 for the matched entity subset). This reconfirms that auto-detection succeeds in v0.2.16.
+
+**Mechanism clarification:** The `matchedBy="alias"` field is significant and was not fully analyzed in Addendum 3. Auto-detection in v0.2.16 operates via alias index lookup — not via LLM-based or NLP-based entity extraction. The system matches entity names (and configured aliases) in the context string against an alias index. This is a narrower mechanism than full natural language entity extraction: it reliably detects entities whose names or aliases appear literally in the context, but it will not detect entities referenced by semantic paraphrase or indirect description. This distinction has practical implications:
+
+- **What works:** Context strings that contain the entity name, a registered alias, or a close lexical variant will trigger correct detection. This covers the most common case.
+- **What does not:** Context strings that refer to an entity by description ("the project we discussed last week") without a literal name or alias match will not trigger detection. The hint-dependent fallback remains necessary for this case.
+
+The prior Section 5.2 discussion of the auto-detection gap (which assumed detection was entirely non-functional) should be read in light of this updated understanding. Detection is now functional but mechanism-bounded: it is alias-driven, not NLP-driven. This is a narrower but reliable capability, and agents designing around it should register entity aliases broadly and use literal entity names in context strings where recovery may be needed.
+
+### Status of All v5.0 Findings
+
+| Finding from Addendum 3 | Status after v6.0 revalidation |
+|-------------------------|-------------------------------|
+| Slash-value defect: RETRACTED | Double-confirmed RETRACTED (fresh repro + upstream regression tests) |
+| user/main noise: RESOLVED | Confirmed RESOLVED (retrieval-side); upstream write-side fix also confirmed |
+| Auto-detection fixed (alias-based) | Reconfirmed; mechanism clarified as alias index lookup, not NLP extraction |
+| iranti_observe with hint: 5/6 (83%) | Unchanged |
+| iranti_attend classifier: fixed since v0.2.14 | Unchanged |
+
+All prior v5.0 findings are maintained. The v6.0 revalidation adds independent confirmation of the two retracted/resolved defects and provides a more precise characterization of the auto-detection mechanism.

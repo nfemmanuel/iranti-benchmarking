@@ -1,6 +1,32 @@
 # Software Versions
 
-## Current (v3.0 — B13 execution)
+## Current (v6.0 — Targeted Revalidation, 2026-03-22)
+
+| Component | Version |
+|-----------|---------|
+| iranti CLI | 0.2.16 |
+| iranti runtime | 0.2.16 |
+| Instance | local (localhost:3001) |
+| Instance mode | isolated |
+| LLM_PROVIDER | openai |
+| Vector backend | pgvector (unreachable — warn) |
+
+v6.0 targeted revalidation executed on 2026-03-22. No new npm release — same 0.2.16 binary as v3.0–v5.0. Revalidation triggered by upstream commit d03781a1 ("Harden benchmark regressions and compatibility policy") in the iranti source repo. Commit is unreleased but documents upstream intent and adds regression coverage.
+
+**Upstream state context:**
+- `tests/typescript_client/smoke_test.ts`: fixed to use isolated `person/` entity, no longer writes to `user/main`
+- `tests/memory-retrieval-regressions.ts`: new file; slash-value through query/search/observe/attend — all PASS
+- `src/lib/runtimeLifecycle.ts`: permissive legacy runtime.json parsing; old version metadata files parse with defaults
+- `docs/decisions/007-compatibility-policy.md`: ADR 007 — compatibility-first policy across CLI, API, SDKs, config, persisted state
+- `README.md`: narrowed to defensible product claims aligned with benchmark findings
+
+v6.0 revalidation confirmed: slash-value RETRACTED, user/main RESOLVED, B4/B11/B12/B13 findings unchanged.
+
+## v5.0 — Complete Program Close-Out (v0.2.16, 2026-03-21)
+
+B1–B13 all closed. Full-protocol reruns complete. See `results/published/rpm-signoff-v5.md`.
+
+## v3.0–v4.0 — Full Rerun (B13 execution)
 
 | Component | Version |
 |-----------|---------|

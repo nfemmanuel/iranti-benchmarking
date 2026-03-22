@@ -115,4 +115,22 @@ That's the test that matters: not the one designed to produce a good result, but
 
 ---
 
+---
+
+**Update (March 2026):** Since this article was published, a relevant development has occurred on the engineering side that's worth sharing.
+
+The Iranti engineering team has formally written down their upgrade durability promises. In their development process, they use documents called ADRs (architectural decision records) to commit to product behaviors. They've now published one — ADR 007 — that covers exactly the kinds of guarantees B13 was testing: data written by older versions will still be readable after upgrades, the API will stay consistent, configuration files won't break, and so on.
+
+To put it plainly: our benchmark measured the durability, and the team has now written the durability into their spec.
+
+This doesn't change what the numbers showed. Our evidence is still n=3 (three version upgrades, measured empirically), and we're clear about what we did and didn't test. The formalization of a policy doesn't turn a small-n measurement into a large-n measurement.
+
+What it does do is tell you something about trajectory. A team that treats upgrade durability as an informal side-effect of how they happen to have built things is a different thing from a team that has explicitly declared it a product commitment they're accountable for. ADR 007 means the latter. The engineering team has defined compatibility as a named surface with stated guarantees — and when they change something, they're now committing to do it in a way that doesn't break that surface.
+
+The team has also added tests that verify older runtime metadata files parse correctly with newer versions of the software. This addresses one of the gaps we noted in the original article: we hadn't tested what happens when you fully restart Iranti from scratch after an upgrade (cold restart), and we noted it as something to verify. The new tests don't close that gap entirely, but they do mean the specific mechanism that would most likely break a cold restart — misreading the runtime configuration file from a prior version — is now explicitly tested and confirmed to work.
+
+Short version: we measured the durability; the team wrote it down as a commitment. Both things are true, and they point in the same direction.
+
+---
+
 *This report is part of the Iranti Benchmarking Program. All results are from controlled and longitudinal evaluation using the installed Iranti instance (versions 0.2.12, 0.2.14, 0.2.16). Raw results and full methodology are available in the accompanying technical paper.*

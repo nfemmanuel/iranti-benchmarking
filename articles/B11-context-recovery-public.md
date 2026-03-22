@@ -184,4 +184,30 @@ The trajectory is clearly positive. The architectural issue that made hint-free 
 
 ---
 
+---
+
+**Update (March 2026):** A v6.0 revalidation pass revisited the key findings from this benchmark. A few things are worth noting for anyone following the story.
+
+**Two previously-reported defects are now doubly confirmed as non-issues.**
+
+When we were working through B11, we initially thought we had found a bug where fact values containing forward slashes (`/`) would silently disappear from retrieval results. We later retracted that claim after a minimal repro test showed it didn't reproduce. In this latest revalidation, we ran fresh tests again — and the defect still doesn't reproduce. Slash values, URL values, ratio values all come back correctly across every retrieval path. That's three independent checks now all saying the same thing: this was never a real bug.
+
+Separately, the engineering team recently fixed their own test suite to remove a write operation that was producing the `user/main/favorite_city` noise entry we documented earlier. This confirms what we suspected when we first flagged it: that entry was always a test artifact from the engineers' own development process, not something Iranti does in normal use. We were right to flag it, and we were right to say it was a methodology concern rather than a product bug.
+
+**The Iranti engineering team independently validated the slash-value finding.**
+
+When we retracted the slash-value defect claim, that was based on our own re-testing. Since then, the engineering team has added regression tests that explicitly check slash-bearing and URL-bearing values through all four retrieval paths. Those tests all pass. This means the same conclusion — slash values work correctly — is now confirmed both by our benchmark revalidation and by the team's own test suite. We didn't coordinate on this; they reached the same answer independently. That kind of convergence is a meaningful quality signal.
+
+**A note on how automatic entity detection works.**
+
+In v0.2.16, we reported that auto-detection was fixed — the system could now find the right project in memory without us having to specify an entity ID manually. That result is confirmed again in this revalidation (5/5 relevant facts returned, confidence=0.82). But we can now describe the mechanism more precisely.
+
+The detection works by looking up entity names and registered aliases against an index — it's a name-matching process, not a language understanding process. That's a subtle but important distinction. It means: if your context text contains the actual name of the project (like "lunar_api_v3"), detection will work reliably. If your context only refers to it indirectly ("the project we kicked off last quarter"), detection won't work, because there's no literal name to match.
+
+This is a narrower capability than full language-based detection would be — but it's also more predictable. You know when it will work and when it won't. Agents that include entity names explicitly in their context strings will get reliable automatic detection. Agents that don't will still need to supply hints.
+
+The bottom line on B11 hasn't changed. What's changed is that the two previously-reported issues have been independently confirmed as non-issues, and we now have a cleaner picture of how automatic detection works under the hood.
+
+---
+
 *This report is part of the Iranti Benchmarking Program. All results are from controlled evaluations using the installed Iranti instance. Raw results and full methodology are available in the accompanying technical paper.*

@@ -388,6 +388,20 @@ B4 is now **partially resolved** as of v0.2.16. The critical search failure that
 
 ---
 
+## v6.0 Note (2026-03-22)
+
+A targeted revalidation pass against installed Iranti v0.2.16 was conducted as part of the broader v6.0 revalidation program. No new npm release; installed version remains v0.2.16.
+
+**Named attribute search (direct attribute-value queries):** Confirmed operational. The iranti_search crash fixed in v0.2.16 (documented in the v0.2.16 addendum above) and the restored vector scoring (vectorScore 0.35–0.74) were reconfirmed. Direct attribute queries — finding entities by institution name, employer name, or similarly named attributes — continue to work via the vector scoring path.
+
+**Semantic paraphrase queries:** Still fail. Indirect-description queries that do not use literal attribute names or values do not surface the correct entity in top results. This is unchanged from the v0.2.16 addendum finding.
+
+**Upstream README acknowledgment:** The development branch at commit d03781a1 narrowed the Iranti README to more honestly define the product boundary. The README now acknowledges that "full semantic-paraphrase retrieval... not yet" is the current state. This is an explicit upstream acknowledgment of the capability boundary that B4's semantic paraphrase finding identified empirically. The two accounts are consistent: B4's controlled measurement and the development team's own product boundary statement both locate the ceiling at semantic paraphrase queries.
+
+**No change to B4 findings.** All results, conclusions, and version history entries in this paper remain as recorded. This note supplements the v0.2.16 addendum without modifying it.
+
+---
+
 ## Appendix A: Entity Dataset
 
 See `benchmarks/B4-multi-hop/dataset.md`.

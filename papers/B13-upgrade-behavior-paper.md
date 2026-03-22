@@ -324,6 +324,52 @@ White, T. (2015). Hadoop: The Definitive Guide (4th ed.). O'Reilly Media.
 
 ---
 
+## Addendum — v6.0 Compatibility Policy Update (2026-03-22)
+
+This addendum records the implications of upstream development activity in the Iranti codebase (commit d03781a1, "Harden benchmark regressions and compatibility policy") for B13's empirical findings. No new npm release has been issued; installed version remains v0.2.16.
+
+### ADR 007: Compatibility Policy Formalized
+
+The development branch at commit d03781a1 includes ADR 007, a formal architectural decision record that defines compatibility surfaces and commitments across the Iranti product. The ADR designates the following as explicit compatibility surfaces with stated stability guarantees:
+
+- CLI interface
+- REST API surface
+- SDKs
+- Configuration file formats
+- Persisted state (on-disk data written by prior versions)
+
+The formalization of persisted state as a compatibility surface is directly relevant to B13. Our empirical findings — that data written in v0.2.12 reads correctly in v0.2.16 with no migration loss — documented upgrade durability as an observed property. ADR 007 formalizes it as a product commitment: the development team treats the persisted state format as a surface they are accountable for preserving across versions.
+
+**Important scope note:** ADR 007 is in the development branch (commit d03781a1) and has not been released as part of a new installed version. It confirms the engineering direction but does not change the installed v0.2.16 surface. The formal evidence basis for B13 remains the empirical n=3 cross-version durability measurements described in Sections 4 and 5.
+
+### Runtime.json Permissive Parsing
+
+The same upstream commit includes new lifecycle tests validating that legacy `runtime.json` shapes — metadata files written by older versions of Iranti — are now parsed permissively, with sensible defaults applied when fields are missing or differ from current expectations. This is directly relevant to B13's "not a true restart test" limitation (Section 7.1): a cold-restart scenario relies on the runtime reading its own persisted metadata correctly. Permissive parsing means that metadata written by v0.2.12 will be interpreted correctly by v0.2.16 even if intermediate versions added or changed fields.
+
+This strengthens the cold-restart durability posture, which B13 identified as untested. While the formal evidence for cold-restart behavior is still absent from our empirical results, the upstream regression test suite now validates this parsing path explicitly.
+
+### Interpretation: Direction vs. Evidence
+
+The B13 findings are best understood as occupying two distinct but complementary levels:
+
+1. **Formal evidence basis:** Three-version empirical measurement (n=3 upgrade events, 4/5 durability probe reads, 3/3 post-upgrade writes, conflict state preservation confirmed, API surface stability confirmed). These are the evidential claims. They are bounded to the tested version range and upgrade path.
+
+2. **Forward signal:** ADR 007 and the runtime.json permissive parsing commitment indicate that the engineering direction treats durability as a product-level guarantee, not an implementation convenience. This increases confidence that continued durability is likely across future incremental upgrades.
+
+The formal paper claims rest on finding (1) alone. Finding (2) is a contextual signal worth recording for readers assessing the maturity and trajectory of the system. Neither claim is overstated: the empirical n=3 measurement is what it is, and the policy direction is explicitly labeled as unreleased development branch material.
+
+### Summary of v6.0 Implications for B13
+
+| Aspect | Status |
+|--------|--------|
+| B13 empirical findings | Unchanged — all prior results stand |
+| ADR 007 compatibility policy | Confirms durability direction; not yet a released version |
+| Runtime.json permissive parsing | Upstream lifecycle tests validate legacy metadata reading; strengthens cold-restart posture |
+| Formal evidence basis | Still n=3, 4/5 probe — no change to quantitative claims |
+| Cold-restart limitation | Still formally untested; upstream parsing fix improves confidence |
+
+---
+
 ## Appendix A: Version Timeline and Benchmark Coverage
 
 | Version | Write activity | Read activity (reruns) |
