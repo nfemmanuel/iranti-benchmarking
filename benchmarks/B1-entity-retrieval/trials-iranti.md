@@ -293,3 +293,46 @@ IB8: iranti_query("researcher/bob_okafor", "research_focus")
 | IB6 | researcher/bob_okafor | publication_count | created | 23 | ✓ |
 | IB7 | researcher/bob_okafor | previous_employer | created | DeepMind (2020–2023) | ✓ |
 | IB8 | researcher/bob_okafor | research_focus | created | computer vision | ✓ |
+
+---
+
+## N=1000 Remediation Pass — Iranti Arm (2026-03-22)
+
+**Remediation rationale:** Prior N=1000 Iranti trial used a 10-question probe set and did not
+formally document arm symmetry with the baseline. This pass uses the canonical 8-question probe
+with namespaced entity names to confirm arm identity is clean.
+
+**Entity namespace used:** `researcher/b1_n1000_alice_chen`, `researcher/b1_n1000_bob_okafor`
+(avoids collision with prior writes to `researcher/alice_chen` and `researcher/bob_okafor`)
+**All 8 writes:** returned `"action": "created"` — no prior data existed for these namespaced entities.
+
+### Write Phase (2026-03-22T09:33:28–37Z)
+
+```
+iranti_write(entity="researcher/b1_n1000_alice_chen", key="affiliation",       value="MIT Computer Science",          conf=100) → created
+iranti_write(entity="researcher/b1_n1000_alice_chen", key="publication_count", value=47,                              conf=100) → created
+iranti_write(entity="researcher/b1_n1000_alice_chen", key="previous_employer", value="OpenAI (2018-2021)",            conf=100) → created
+iranti_write(entity="researcher/b1_n1000_alice_chen", key="research_focus",    value="natural language processing",   conf=100) → created
+iranti_write(entity="researcher/b1_n1000_bob_okafor", key="affiliation",       value="Stanford AI Lab",               conf=100) → created
+iranti_write(entity="researcher/b1_n1000_bob_okafor", key="publication_count", value=23,                              conf=100) → created
+iranti_write(entity="researcher/b1_n1000_bob_okafor", key="previous_employer", value="DeepMind (2020-2023)",          conf=100) → created
+iranti_write(entity="researcher/b1_n1000_bob_okafor", key="research_focus",    value="computer vision",               conf=100) → created
+```
+
+### Query Phase Results
+
+| Q# | Question | iranti_query Answer | Ground Truth | Correct |
+|----|----------|---------------------|--------------|---------|
+| Q1 | alice_chen affiliation | MIT Computer Science | MIT Computer Science | ✓ |
+| Q2 | alice_chen publication_count | 47 | 47 | ✓ |
+| Q3 | alice_chen previous_employer | OpenAI (2018-2021) | OpenAI (2018-2021) | ✓ |
+| Q4 | alice_chen research_focus | natural language processing | natural language processing | ✓ |
+| Q5 | bob_okafor affiliation | Stanford AI Lab | Stanford AI Lab | ✓ |
+| Q6 | bob_okafor publication_count | 23 | 23 | ✓ |
+| Q7 | bob_okafor previous_employer | DeepMind (2020-2023) | DeepMind (2020-2023) | ✓ |
+| Q8 | bob_okafor research_focus | computer vision | computer vision | ✓ |
+
+**N=1000 Remediation Iranti Score: 8/8 (100%)**
+All values contested=false, confidence=100, fromArchive=false.
+
+**Differential (remediation pass): Iranti 8/8 − Baseline 8/8 = 0/8 (0pp). Null confirmed.**

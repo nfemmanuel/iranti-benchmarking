@@ -25,7 +25,7 @@ We built a benchmark to start characterizing this difference with Iranti.
 
 ## What We Actually Tested
 
-We adapted a well-known benchmark called Needle-in-a-Haystack. The original version tests whether an LLM can retrieve a specific sentence buried in a long document. We modified it to test structured entity retrieval — retrieving specific facts about specific named entities.
+We designed a structured entity retrieval probe, motivated by the Needle-in-a-Haystack (NIAH) benchmark literature. The original NIAH tests whether an LLM can retrieve a specific sentence buried in a long document at 32k+ tokens. Our adaptation tests structured entity retrieval at a much smaller scale — it does not replicate the NIAH protocol, and the 'NIAH variant' label is not used for this benchmark.
 
 **The setup:**
 - We constructed a researcher registry: a list of fictional researchers, each with four facts (institution, paper count, previous employer, research focus)

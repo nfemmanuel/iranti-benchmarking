@@ -1,9 +1,10 @@
 # Benchmark B7: Conversational Episodic Memory
 
 **Family:** Episodic memory / conversational recall
-**Inspired by:** MemGPT (Packer et al., 2023); LONGMEM (Wang et al., 2023); ConvQA benchmarks
+**Motivated by:** MemGPT (Packer et al. 2023) establishes the case for persistent memory management in LLM agents; LONGMEM (Wang et al. 2023) demonstrates recall degradation at 30k-100k tokens. Note: no MemGPT system is used as a comparison baseline in this benchmark. The current execution (5,500 tokens) is below the regime where episodic memory effects emerge. See Section 6 Threats to Validity.
 **Executed:** 2026-03-21
-**Status:** Complete — first execution
+**Status:** Complete — v0.2.16 execution; redesigned for v0.2.21. See: benchmarks/B7-episodic-memory/B7-redesign-v0221.md
+**Redesign note:** v0.2.16 produced null differential due to arm confound (KB + in-context access simultaneous during probe) and sub-stress scale (5,500 tokens). v0.2.21 protocol uses context-clear design: Iranti arm answers probes in a fresh session with no transcript in context (KB only). See B7-redesign-v0221.md Part 4 for full protocol.
 
 ---
 

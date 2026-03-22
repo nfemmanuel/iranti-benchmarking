@@ -115,6 +115,8 @@ We queried all eight keys explicitly.
 
 All eight facts came back. Setup facts. Progress facts. Everything. Exactly as written.
 
+This result requires the recovery agent to have prior knowledge of the entity ID and key names — information that must be designed into the agent's session handoff protocol. Without this oracle knowledge, recovery defaults to the observe path (5/8) or is not possible.
+
 This is lossless recovery. The data is all there; a targeted query retrieves it all.
 
 ---

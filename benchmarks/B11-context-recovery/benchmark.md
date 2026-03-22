@@ -1,7 +1,7 @@
 # Benchmark B11: Context Recovery (iranti_observe + iranti_attend)
 
 **Family:** Working memory / context recovery
-**Inspired by:** MemGPT memory paging; attention restoration theory; LLM context management
+**Motivated by:** The stateless-LLM context management problem; MemGPT (Packer et al. 2023) establishes external memory paging as a solution. Note: 'attention restoration theory' (Kaplan 1989, cognitive psychology) is not applicable to LLM evaluation and has been removed from this program's benchmark family labels.
 **Executed:** 2026-03-21
 **Status:** Complete — first execution
 

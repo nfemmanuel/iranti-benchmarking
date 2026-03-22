@@ -5,7 +5,7 @@
 **Authors:** Iranti Benchmarking Program (Research Program Manager, Benchmark Scientist, Replication Engineer)
 **Benchmark track:** B9 — Entity Relationship Graph (iranti_relate)
 **Model under test:** Iranti (installed instance, local) — iranti_relate write arm and iranti_search retrieval arm
-**Baseline reference:** Knowledge graph benchmarks (FB15k, YAGO3); RDF triple store standards
+**Design basis:** Original API capability audit. Note: Knowledge graph embedding benchmarks (FB15k, YAGO) are not applicable here — those benchmarks evaluate link prediction accuracy for trained embedding models. This benchmark evaluates whether the relationship graph API is functional end-to-end.
 
 ---
 
@@ -266,7 +266,7 @@ Five edges is a minimal test of write fidelity. The write success rate (5/5) is 
 
 ## 7. Conclusion
 
-We evaluate Iranti's `iranti_relate` capability against write fidelity and agent read accessibility requirements derived from knowledge graph benchmarks (FB15k, YAGO3) and graph database standards (RDF, property graphs). The write arm performed at 100%: five directed relationship edges were created with typed predicates and structured property JSON accepted without error. The read arm revealed a complete absence of agent-accessible read capability: `iranti_search` does not index the relationships table, no MCP read tool for relationships exists, and the control-plane REST endpoint is not MCP-accessible.
+We evaluate Iranti's `iranti_relate` capability for write fidelity and agent read accessibility. The evaluation is an original API capability audit; graph database standards (RDF, property graphs) provide framing for the interface requirements, but knowledge graph embedding benchmarks (FB15k, YAGO3) are not used as comparators and are not applicable to this audit. The write arm performed at 100%: five directed relationship edges were created with typed predicates and structured property JSON accepted without error. The read arm revealed a complete absence of agent-accessible read capability: `iranti_search` does not index the relationships table, no MCP read tool for relationships exists, and the control-plane REST endpoint is not MCP-accessible.
 
 The result is a write-only relationship graph from the agent's perspective. This is an interface gap, not an architectural limitation — the storage infrastructure is present, and the control-plane REST API can retrieve edges. The agent MCP interface has not been extended to expose read access to relationship data.
 
@@ -288,17 +288,11 @@ The gap has significant practical consequences. Agents that write relationship e
 
 ## References
 
-Bordes, A., Usunier, N., Garcia-Duran, A., Weston, J., and Yakhnenko, O. (2013). Translating Embeddings for Modeling Multi-Relational Data. Advances in Neural Information Processing Systems (NeurIPS 2013).
-
 Harris, S. and Seaborne, A. (2013). SPARQL 1.1 Query Language. W3C Recommendation. https://www.w3.org/TR/sparql11-query/
-
-Mahdisoltani, F., Biega, J., and Suchanek, F. M. (2014). YAGO3: A Knowledge Base from Multilingual Wikipedias. 7th Biennial Conference on Innovative Data Systems Research (CIDR 2015).
 
 Robinson, I., Webber, J., and Eifrem, E. (2015). Graph Databases: New Opportunities for Connected Data (2nd ed.). O'Reilly Media.
 
-Sun, Z., Deng, Z.-H., Nie, J.-Y., and Tang, J. (2019). RotatE: Knowledge Graph Embedding by Relational Rotation in Complex Space. Proceedings of the 7th International Conference on Learning Representations (ICLR 2019).
-
-Suchanek, F. M., Kasneci, G., and Weikum, G. (2007). YAGO: A Core of Semantic Knowledge. Proceedings of the 16th International Conference on World Wide Web (WWW 2007).
+Note: FB15k (Bordes et al. 2013) and YAGO3 (Mahdisoltani et al. 2014 / Suchanek et al. 2007) were cited in earlier versions of this paper as benchmark comparators. Those citations have been removed. Knowledge graph embedding benchmarks (FB15k, YAGO) evaluate link prediction accuracy for trained embedding models; they are categorically inapplicable to this benchmark, which is an API capability audit. The RotatE citation (Sun et al. 2019) has also been removed for the same reason.
 
 ---
 

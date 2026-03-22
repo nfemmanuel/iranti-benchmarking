@@ -1,7 +1,7 @@
 # Benchmark B1: Entity Fact Retrieval under Distractor Density
 
-**Family:** Long-context retrieval (NIAH variant)
-**Inspired by:** Needle-in-a-Haystack (Kamradt, 2023); RULER (Hsieh et al., 2024)
+**Family:** Entity fact retrieval capability probe
+**Motivated by:** Long-context retrieval literature (Kamradt 2023 NIAH; Hsieh et al. 2024 RULER). Note: current scale (N≤2000, ≤110k tokens) is below the stress regime where NIAH effects emerge. See Section 2 for protocol differences.
 **Benchmark scientist:** `benchmark_scientist`
 **Execution date:** 2026-03-20
 **Status:** Partial execution complete
@@ -41,6 +41,8 @@ This is motivated by a practical problem in multi-agent systems: a long-running 
 - We do not use the original NIAH scoring infrastructure
 
 These deviations are documented here per the research program's replication standard.
+
+Our adaptation differs from NIAH in that we use structured entity registries rather than prose haystacks, and we vary distractor count rather than document length and needle depth. The 'NIAH variant' label is not used in this program because the benchmark has not been executed at the scale (32k+ tokens) where NIAH-style long-context effects emerge.
 
 ---
 

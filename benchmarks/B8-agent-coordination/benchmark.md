@@ -1,7 +1,7 @@
 # Benchmark B8: Multi-Agent Coordination via Shared KB
 
 **Family:** Multi-agent coordination / shared persistent state
-**Inspired by:** MemGPT multi-agent scenarios (Packer et al., 2023); multi-agent reinforcement learning with shared memory; collective intelligence in AI systems
+**Motivated by:** The general problem of inter-agent information sharing in stateless LLM systems. Background: Packer et al. (2023) sketch multi-agent KB coordination as a use case but do not provide a quantitative evaluation protocol for this scenario. This benchmark uses an original design (two isolated agent sessions coordinating via shared KB) with a definitional baseline (no shared store = zero information transfer by construction).
 **Executed:** 2026-03-21
 **Status:** Complete — first execution
 

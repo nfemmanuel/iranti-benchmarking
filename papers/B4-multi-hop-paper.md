@@ -29,7 +29,7 @@
 
 ## Abstract
 
-We evaluate Iranti's capacity for two-hop entity reasoning against a document-reading baseline using Claude Sonnet 4.6. Multi-hop reasoning requires first retrieving an intermediate attribute to identify a target entity, then retrieving a second attribute from that entity. The task is adapted from multi-hop question answering benchmarks (MuSiQue, HotpotQA).
+We evaluate Iranti's capacity for two-hop entity reasoning against a document-reading baseline using Claude Sonnet 4.6. Multi-hop reasoning requires first retrieving an intermediate attribute to identify a target entity, then retrieving a second attribute from that entity. This probe uses an original task design motivated by the multi-hop QA literature (HotpotQA: Yang et al. 2018; MuSiQue: Trivedi et al. 2022). Note: this benchmark does not replicate either protocol — HotpotQA uses 113k Wikipedia-grounded questions with EM/F1/supporting-fact metrics; this probe uses 4 questions over synthetic entities with binary correct/incorrect scoring.
 
 Results reveal a critical failure in Iranti's search-based retrieval path. The document-reading baseline achieved 4/4 (100%) correct answers. Iranti's search-based arm — where the intermediate entity must be discovered via `iranti_search` — achieved 1/4 (25%), failing on all three questions requiring attribute-value discovery. Iranti's oracle arm — where entity identifiers are known in advance — achieved 4/4 (100%).
 

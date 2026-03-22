@@ -1,7 +1,7 @@
 # Benchmark B9: Entity Relationship Graph (iranti_relate)
 
-**Family:** Knowledge graph / relational structure
-**Inspired by:** Knowledge graph benchmarks (FB15k, YAGO); Neo4j graph query tests; RDF triple stores
+**Family:** API capability audit (iranti_relate / iranti_related / iranti_related_deep)
+**Original design:** API capability audit for iranti_relate, iranti_related, and iranti_related_deep. Note: Knowledge graph embedding benchmarks (FB15k, YAGO) are not applicable here — those benchmarks evaluate link prediction accuracy for trained embedding models. This benchmark evaluates whether the relationship graph API is functional end-to-end.
 **Executed:** 2026-03-21
 **Status:** Complete — first execution
 

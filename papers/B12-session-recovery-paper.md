@@ -205,7 +205,7 @@ Note: with `maxFacts: 8` set to match the total fact count, it is possible that 
 
 All eight facts were returned in exact order. Key-value fidelity was confirmed for all entries. Both setup and progress facts were returned at their original confidence values (95 and 90 respectively). No data loss or corruption was observed.
 
-**Requirement:** The recovery agent must know (a) the entity ID (`task/session_recovery_eval`) and (b) the complete list of key names. Both were supplied explicitly in this evaluation. In practice, this requires that the interrupted agent communicate this information in a handoff artifact, or that both sessions share a known convention for entity naming and key naming.
+**Requirement:** The recovery agent must know (a) the entity ID (`task/session_recovery_eval`) and (b) the complete list of key names. Both were supplied explicitly in this evaluation. This result requires the recovery agent to have prior knowledge of the entity ID and key names — information that must be designed into the agent's session handoff protocol. Without this oracle knowledge, recovery defaults to the observe path (5/8) or is not possible. In practice, this requires that the interrupted agent communicate this information in a handoff artifact, or that both sessions share a known convention for entity naming and key naming.
 
 ### 4.6 Differential Summary
 

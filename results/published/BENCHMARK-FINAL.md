@@ -36,7 +36,7 @@ This program benchmarked the installed Iranti memory system (versions 0.2.12 thr
 **Tool:** iranti_ingest
 **Tracks:** B6
 **Score / Evidence:** 8/8 facts extracted from prose biographical input under real LLM provider (LLM_PROVIDER=openai). Prior apparent failures in v1.0 and v2.0 were confirmed to be mock-LLM artifacts, not product defects.
-**Caveat:** n=8; single entity type (prose biographical). Compound facts are decomposed into sub-keys — the key naming schema may differ from simple expected-key specifications in evaluation harnesses. Confirmed functional for the tested entity type; accuracy rate on diverse entity types or production-scale prose has not been characterized.
+**Caveat:** n=8; single entity type (prose biographical); single passage. This result is from a single-entity test (one researcher biography, one prose passage). It confirms the pipeline functions correctly for this entity type; it does not characterize extraction accuracy across entity types or passage styles. Compound facts are decomposed into sub-keys — the key naming schema may differ from simple expected-key specifications in evaluation harnesses. Confirmed functional for the tested entity type; accuracy rate on diverse entity types or production-scale prose has not been characterized.
 
 ### 4. Attribute-Value Search (iranti_search)
 

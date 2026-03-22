@@ -1,7 +1,7 @@
 # Benchmark B4: Multi-hop Entity Reasoning
 
-**Family:** Multi-hop retrieval / relational reasoning
-**Inspired by:** RULER multi-hop tasks (Hsieh et al., 2024); HotpotQA (Yang et al., 2018)
+**Family:** Sequential entity discovery probe (original task design)
+**Background:** Multi-hop QA literature (RULER: Hsieh et al. 2024; HotpotQA: Yang et al. 2018). Note: this benchmark does not replicate or closely approximate either protocol. HotpotQA uses 113k Wikipedia-grounded questions with EM/F1/supporting-fact metrics; this probe uses 4 questions over synthetic entities with binary correct/incorrect scoring. The primary finding (iranti_search fails on attribute-value discovery) is a system capability characterization, not a multi-hop QA benchmark result.
 **Executed:** 2026-03-21
 **Status:** Complete — first execution
 
