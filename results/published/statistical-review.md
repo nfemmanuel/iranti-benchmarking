@@ -657,7 +657,7 @@ The B1 N=5000 result is the first finding in this program that constitutes a gen
 
 This does not resolve the sample size limitations that apply to every track. The program's evidentiary standards have not changed: all scores remain point estimates, no confidence intervals can be computed, and self-evaluation bias is unresolved. But the program now has a directional finding that is not a null result, and the mechanism is sound.
 
-The defect characterization work (Section 3 above) is also a meaningful contribution: four defects are now characterized with sufficient precision to be actionable for both the product team and the scientific record. The parse_error trigger revision (`/` only, not `%`) is a correction of the prior record that improves its accuracy.
+The defect characterization work (Section 3 above) is also a meaningful contribution: four defects are now characterized with sufficient precision to be actionable for both the product team and the scientific record. The prior parse_error trigger characterization (`/` and `%` in fact values causing silent retrieval loss) has been fully retracted — the mechanism was not reproduced and the signals were entity-extraction classification noise. This retraction is itself a correction of the prior record; the final characterization replaces the prior claim entirely.
 
 **Program status:** Statistical record closed. Open items from v3.0 are resolved. The formal statistical review is complete for the current program version (v0.2.16).
 

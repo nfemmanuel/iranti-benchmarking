@@ -328,7 +328,7 @@ This risk has not worsened since v0.2.14 but also has not been addressed. Benchm
 
 **Correction note (2026-03-21):** Revalidation confirms that the user/main/favorite_city entry no longer surfaces in iranti_attend or iranti_observe results. Slot-pollution behavior is resolved. The entry persists in the KB (source=memory_regression_noise, not typescript_smoke as originally reported), but it does not pollute retrieval results as of current revalidation. The reproducibility risk regarding KB state accumulation generally remains valid, but the specific slot-pollution impact documented here is no longer active.
 
-**Persistent risk 3 — HIGH: Special character parse failure creates silent fact exclusion**
+**Persistent risk 3 — RETRACTED: Special character parse failure (original claim withdrawn)**
 
 A new defect identified in v0.2.16 B11: values containing "%" or "/" characters trigger parse_error or invalid_json during attend/observe result scoring, causing those values to be silently excluded from the scored set. This is a systematic reproducibility risk with the following properties:
 
