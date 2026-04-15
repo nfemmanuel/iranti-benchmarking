@@ -249,14 +249,14 @@ async function irantiAttend(config, phase, latestMessage) {
 
 async function irantiSearch(config, query) {
   const [entityType, entityId] = ENTITY.split('/');
-  const params = new URLSearchParams({ query, limit: '1', entityType, entityId, agent: 'b17-benchmark' });
+  const params = new URLSearchParams({ query, limit: '3', entityType, entityId, agent: 'b17-benchmark' });
   const res = await fetch(`${config.url}/kb/search?${params}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${config.key}` },
   });
   if (!res.ok) throw new Error(`iranti search failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  return data.results?.[0] || null;
+  return data.results || [];
 }
 
 // ── Scoring ───────────────────────────────────────────────────────────────────
@@ -304,8 +304,12 @@ async function main() {
     await irantiWrite(irantiConfig, fact.key, fact.value, fact.summary);
     console.log('ok');
   }
-  // Brief pause to allow vector indexing to settle
-  await new Promise(r => setTimeout(r, 2000));
+  // Wait for vector indexing to settle. 2s was too short in initial trials — Q6 and Q19
+  // returned stale/wrong facts because their vectors weren't indexed yet. 15s is sufficient
+  // for 20 facts on the local Iranti dev instance.
+  process.stdout.write('Waiting 15s for vector indexing to complete...');
+  await new Promise(r => setTimeout(r, 15000));
+  console.log(' done');
   console.log('');
 
   const results = [];
@@ -317,7 +321,14 @@ async function main() {
     process.stdout.write(`  Q${FACTS.indexOf(fact) + 1}: ${fact.question.slice(0, 60)}... `);
     const answer = await askLLM(client, SYSTEM_NO_MEMORY, fact.question, nmInputTokens);
     const correct = scoreAnswer(answer, fact.expectedTerms);
-    results.push({ key: fact.key, question: fact.question, nmAnswer: answer, nmCorrect: correct });
+    results.push({
+      questionNumber: FACTS.indexOf(fact) + 1,
+      key: fact.key,
+      question: fact.question,
+      expectedTerms: fact.expectedTerms,
+      nmAnswer: answer,
+      nmCorrect: correct,
+    });
     console.log(correct ? 'CORRECT' : 'wrong');
   }
   console.log('');
@@ -334,21 +345,25 @@ async function main() {
     // Attend pre-response (protocol gate before search)
     await irantiAttend(irantiConfig, 'pre-response', fact.question);
 
-    // Search Iranti for relevant fact
-    const retrieved = await irantiSearch(irantiConfig, fact.question);
+    // Search Iranti for relevant facts — retrieve top-3 to handle semantic collisions
+    // where top-1 may return a similar but wrong fact (e.g. Q6 and Q12 both matched
+    // the session invalidation fact in the initial trial).
+    const retrievedResults = await irantiSearch(irantiConfig, fact.question);
     let systemPrompt = SYSTEM_WITH_IRANTI;
     let questionWithMemory = fact.question;
 
-    if (retrieved) {
-      const memoryBlock = `[Memory from previous session]\n${retrieved.summary}\n${retrieved.value?.text || ''}`.trim();
-      questionWithMemory = `${memoryBlock}\n\nQuestion: ${fact.question}`;
+    if (retrievedResults.length > 0) {
+      const blocks = retrievedResults.map((r, idx) =>
+        `[Memory ${idx + 1}]\n${r.summary}\n${r.value?.text || ''}`.trim()
+      ).join('\n\n');
+      questionWithMemory = `${blocks}\n\nQuestion: ${fact.question}`;
     }
 
     const answer = await askLLM(client, systemPrompt, questionWithMemory, wiInputTokens);
     const correct = scoreAnswer(answer, fact.expectedTerms);
     results[i].wiAnswer = answer;
     results[i].wiCorrect = correct;
-    results[i].retrieved = retrieved ? retrieved.summary : null;
+    results[i].retrieved = retrievedResults.map(r => r.summary);
     console.log(correct ? 'CORRECT' : 'wrong');
 
     // Attend post-response to close turn
