@@ -4,7 +4,11 @@
       "command": "iranti",
       "args": [
         "mcp"
-      ]
+      ],
+      "env": {
+        "IRANTI_MCP_HOST": "codex_cli",
+        "IRANTI_PROJECT_ENV": "C:\\Users\\NF\\Documents\\Projects\\iranti-benchmarking\\.env.iranti"
+      }
     }
   }
 }

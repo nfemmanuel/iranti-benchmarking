@@ -3,19 +3,23 @@
 **Family:** Working memory / context recovery
 **Motivated by:** The stateless-LLM context management problem; MemGPT (Packer et al. 2023) establishes external memory paging as a solution. Note: 'attention restoration theory' (Kaplan 1989, cognitive psychology) is not applicable to LLM evaluation and has been removed from this program's benchmark family labels.
 **Executed:** 2026-03-21
-**Status:** Complete — first execution
+**Status:** Complete - observe recovery is positive; attend remains a current negative surface
+
+
+> **Program context:** For the canonical current benchmark state, start with [`articles/CURRENT-BENCHMARK-STATE.md`](../../articles/CURRENT-BENCHMARK-STATE.md) and [`papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md`](../../papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md). This family document should be read as one track within that broader current-state record.
 
 ---
 
 ## 1. What This Benchmark Measures
 
-Whether `iranti_observe` can recover relevant KB facts when the agent's context window no longer contains them — simulating a scenario where important facts have "paged out" due to context growth.
+Whether `iranti_observe` can recover relevant KB facts when the agent's context window no longer contains them, and whether `iranti_attend` can autonomously decide to inject those facts.
 
 This tests:
 - **Relevance ranking**: Does observe return the facts most relevant to the current context?
 - **Entity detection**: Can observe auto-detect which entities are relevant from context text alone?
 - **Hint-assisted recovery**: Does providing explicit entity hints improve recovery?
 - **Coverage**: Of N facts in the KB for an entity, what fraction does observe return?
+- **Attend injection truth**: Can `iranti_attend` autonomously decide to inject the right facts without force mode?
 
 ---
 
@@ -116,3 +120,43 @@ forceInject: true
 3. Relevance ranking mechanism is not observable
 4. The parse_error in debug output may indicate a malformed internal candidate — not affecting results but worth noting
 5. iranti_attend classifier failure may be version-specific or configuration-dependent
+
+---
+
+## 9. v0.2.35 Rerun Results (2026-03-26)
+
+**Runtime under test:** clean disposable installed-product instance `bench_v0235` reporting `0.2.35`  
+**Raw report:** `results/raw/B11-context-recovery-v0235-trial.md`
+
+### Score Summary
+
+| Pathway | Score | Notes |
+|---|---:|---|
+| `iranti_observe` with explicit entity hint | 5/6 | Same five facts surfaced as the earlier run |
+| `iranti_observe` cold / no hint | 5/6 | Cold recovery now works via alias-resolution fallback |
+| `iranti_attend` natural | 0/6 | `classification_parse_failed_default_false`; `shouldInject=false` |
+| `iranti_attend` `forceInject=true` | 5/6 | Matches observe output |
+
+### Current Interpretation
+
+The historical B11 claim needs to be narrowed.
+
+What still stands:
+- `observe` remains a real recovery surface
+- the same five high-salience facts are consistently recoverable
+- `attend` natural injection is still not operationally trustworthy
+
+What changed materially at `0.2.35`:
+- the older ?cold observe returns 0/6 without a hint? result no longer stands on a clean runtime
+- cold observe now recovers `5/6` through alias-based fallback, even though the detector still emits parse-error / heuristic-fallback noise in debug output
+
+### Practical Takeaway
+
+The current product story for B11 is:
+- **cold observe is materially better than before**
+- **natural attend remains broken**
+- **the missing sixth fact (`sla_uptime`) still limits complete recovery**
+
+This family should now be cited as:
+- a positive current-version recovery result for `observe`
+- a continuing defect result for `attend`

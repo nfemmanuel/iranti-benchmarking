@@ -1,0 +1,27 @@
+{
+  "name": "iranti-benchmarking",
+  "version": "1.0.0",
+  "description": "Fresh research workspace for evaluating Iranti against standard LLM and memory-system benchmarks.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nfemmanuel/iranti-benchmarking.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nfemmanuel/iranti-benchmarking/issues"
+  },
+  "homepage": "https://github.com/nfemmanuel/iranti-benchmarking#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0"
+  }
+}

@@ -2,9 +2,12 @@
 
 **Family:** Episodic memory / conversational recall
 **Motivated by:** MemGPT (Packer et al. 2023) establishes the case for persistent memory management in LLM agents; LONGMEM (Wang et al. 2023) demonstrates recall degradation at 30k-100k tokens. Note: no MemGPT system is used as a comparison baseline in this benchmark. The current execution (5,500 tokens) is below the regime where episodic memory effects emerge. See Section 6 Threats to Validity.
-**Executed:** 2026-03-21
-**Status:** Complete — v0.2.16 execution; redesigned for v0.2.21. See: benchmarks/B7-episodic-memory/B7-redesign-v0221.md
+**Executed:** 2026-03-21 (v0.2.16 first execution); 2026-03-22 (v0.2.21 rerun — Candidate A context-clear design)
+**Status:** Complete — v0.2.21 rerun complete. See: results/raw/B7-episodic-v0221-session-a.md, results/raw/B7-episodic-v0221-iranti-arm.md, results/raw/B7-episodic-v0221-baseline-arm.md
 **Redesign note:** v0.2.16 produced null differential due to arm confound (KB + in-context access simultaneous during probe) and sub-stress scale (5,500 tokens). v0.2.21 protocol uses context-clear design: Iranti arm answers probes in a fresh session with no transcript in context (KB only). See B7-redesign-v0221.md Part 4 for full protocol.
+
+
+> **Program context:** For the canonical current benchmark state, start with [`articles/CURRENT-BENCHMARK-STATE.md`](../../articles/CURRENT-BENCHMARK-STATE.md) and [`papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md`](../../papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md). This family document should be read as one track within that broader current-state record.
 
 ---
 
@@ -62,10 +65,26 @@ During simulated conversation, agent writes each fact to KB as stated (using ira
 
 ## 4. Results
 
+### v0.2.16 Results (confounded — arm confound present; see redesign note)
+
 | Arm | Score |
 |-----|-------|
 | Context-reading baseline | [see B7-baseline-trial.md] |
 | Iranti arm | 10/10 (100%) |
+
+### v0.2.21 Results (Candidate A context-clear design — arm confound removed)
+
+| Arm | Score | Protocol |
+|-----|-------|----------|
+| Iranti arm (Session B — cold KB retrieval) | 10/10 (100%) | iranti_query only, no transcript in context; see B7-episodic-v0221-iranti-arm.md |
+| Context-reading baseline (Session C — transcript re-read) | 10/10 (100%) | transcript re-read, no Iranti tools; see B7-episodic-v0221-baseline-arm.md |
+
+**Differential: 0 (10/10 vs. 10/10)**
+
+Write completeness (Session A): 12/12 facts written to entity project/b7_clear_v0221; all action="created".
+Query success rate (Session B): 10/10 found=true; 0 contested; 0 fromArchive.
+
+**Interpretation (per B7-redesign-v0221.md Section 4.7):** Both mechanisms (KB retrieval and context re-read) achieved perfect recall at this scale. KB retrieval functions as a complete substitute for in-context access on a 5,500-token synthetic transcript. This confirms correct KB write-and-retrieve operation. The null differential is expected and informative, not a failure. This test does not address the scale regime where context-window recall degrades (50k+ tokens).
 
 ---
 

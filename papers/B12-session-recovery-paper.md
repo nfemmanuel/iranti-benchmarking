@@ -7,6 +7,9 @@
 **Model under test:** Iranti (installed instance, local) — iranti_write, iranti_handshake, iranti_observe, iranti_query
 **Baseline condition:** No-Iranti (zero persistent state; all facts irrecoverable after session break)
 
+
+> **Current-version addendum (2026-03-26):** The refreshed rerun keeps durability and explicit-query recovery positive, but automatic interrupted-session recovery remains weak. The current claim should be read as durability plus explicit recovery, not general autonomous session restoration.
+
 ---
 
 ## Abstract

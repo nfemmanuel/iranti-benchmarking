@@ -7,6 +7,9 @@
 **Model under test:** Iranti (installed instance, local) — iranti_observe
 **Baseline condition:** No-Iranti (zero-shot recall from context window alone)
 
+
+> **Current-version addendum (2026-03-26):** The refreshed rerun supports a split reading: `iranti_observe` is materially positive again, while natural `iranti_attend` remains negative. This paper should not be read as evidence of general autonomous context recovery.
+
 ---
 
 ## Abstract

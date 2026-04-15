@@ -14,6 +14,9 @@ This is the "context window problem," and it's one of the main reasons AI memory
 
 We ran a benchmark to test whether that retrieval actually works.
 
+
+> **Current-version note (2026-03-26):** The refreshed rerun supports a split reading of this track. `iranti_observe` is materially positive again, but natural `iranti_attend` remains a negative surface. Do not read this article as proof of general autonomous context recovery. The current claim is: observe recovery improved; autonomous attend recovery still does not stand as a positive result.
+
 ---
 
 ## The Setup

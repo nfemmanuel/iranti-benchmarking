@@ -5,6 +5,9 @@
 **Date:** March 2026
 **Audience:** Technical generalists — developers, AI researchers, curious readers
 
+
+> **Current-version note (2026-03-26):** The refreshed current-version rerun keeps the deterministic conflict story positive but narrows the ambiguous close-gap zone. Do not read this article as current proof that close-gap LLM arbitration is a strong positive result or that timeout behavior is the main headline. The current rerun supports deterministic conflict logic plus conservative escalation in the ambiguous zone.
+
 ---
 
 ## The Question We're Actually Asking

@@ -7,6 +7,9 @@
 **System under test:** Iranti (installed instance, local)
 **Baseline condition:** Definitional (no shared persistent store = zero information transfer)
 
+
+> **Current-version addendum (2026-03-26):** The refreshed rerun preserves the strong addressed-retrieval and provenance result. Discovery should be described more narrowly: the current search surface is vector-led and over-broad rather than a clean general coordination-discovery primitive.
+
 ---
 
 ## Abstract

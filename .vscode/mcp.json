@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "iranti": {
+      "type": "stdio",
+      "command": "iranti",
+      "args": [
+        "mcp"
+      ],
+      "envFile": "${workspaceFolder}/.env.iranti",
+      "env": {
+        "IRANTI_MCP_HOST": "codex_vscode"
+      }
+    }
+  }
+}

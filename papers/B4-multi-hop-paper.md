@@ -7,6 +7,9 @@
 **Model under test:** Iranti (installed instance, local) — search-based and oracle arms
 **Baseline model:** Claude Sonnet 4.6 (context-reading)
 
+
+> **Current-version addendum (2026-03-26):** The refreshed rerun supports a bounded top-5 entity-discovery claim under synthetic conditions. It should not be cited as a general multi-hop reasoning benchmark win or a top-1 search-ranking claim.
+
 ---
 
 ## Version History

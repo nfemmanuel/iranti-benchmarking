@@ -14,6 +14,9 @@
 | 0.1 | 2026-03-21 | Initial draft — v0.2.12 mock-provider results (T1–T4) |
 | 0.2 | 2026-03-21 | v0.2.16 rerun addendum — real OpenAI provider; T5 added; transaction timeout defect documented |
 
+
+> **Current-version addendum (2026-03-26):** The refreshed rerun keeps deterministic update semantics positive, but ambiguous cross-source updates now read as conservative escalation rather than a clean incumbent-preserving rejection or a stable "established source bias" story.
+
 ---
 
 ## Abstract

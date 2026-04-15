@@ -5,6 +5,9 @@
 **Executed:** 2026-03-21
 **Status:** Complete — first execution
 
+
+> **Program context:** For the canonical current benchmark state, start with [`articles/CURRENT-BENCHMARK-STATE.md`](../../articles/CURRENT-BENCHMARK-STATE.md) and [`papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md`](../../papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md). This family document should be read as one track within that broader current-state record.
+
 ---
 
 ## 1. What This Benchmark Measures

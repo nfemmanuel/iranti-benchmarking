@@ -4,6 +4,10 @@
 **Version under test:** 0.2.16
 **Program version:** 6.0
 
+> Historical record notice: this table is the closed `0.2.16` / v6.0 summary table.
+> Newer reruns on `2026-03-26` narrowed or refreshed several current-version stories, especially `B3`, `B4`, `B5`, `B8`, `B11`, `B12`, `B1`, and `B13`.
+> Treat this file as the historical program closeout, not the full current-version benchmark state.
+
 ---
 
 ## Table 1: Track Results

@@ -7,6 +7,9 @@
 **Model under test:** Iranti (installed instance, local)
 **Baseline:** Not applicable (no comparative baseline; single-arm behavioral characterization)
 
+
+> **Current-version addendum (2026-03-26):** The refreshed rerun narrows the practical claim surface for the ambiguous close-gap zone. Deterministic conflict logic remains positive, but close-gap cases should now be described as conservative and escalation-prone rather than as a broadly validated positive LLM-arbitration result.
+
 ---
 
 ## Abstract

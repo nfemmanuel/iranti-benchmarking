@@ -58,6 +58,15 @@ iranti claude-setup . --project-env .env.iranti
 - `papers/` - formal scientific paper drafts
 - `articles/` - public-facing explainers and blog blurbs
 
+## Start Here
+
+If you need the current benchmark state rather than the historical `0.2.16` record, start with:
+- `articles/CURRENT-BENCHMARK-STATE.md`
+- `articles/CURRENT-BENCHMARK-STATE-SHORT.md`
+- `papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md`
+
+The older materials under `results/published/` remain the bounded historical public record.
+
 ## Standard
 
 This workspace should favor:
@@ -66,4 +75,3 @@ This workspace should favor:
 - reproducibility
 - baseline rigor
 - conservative claims
-

@@ -9,6 +9,9 @@
 **Date:** March 2026
 **Audience:** Technical generalists — developers, AI researchers, curious readers
 
+
+> **Current-version note (2026-03-26):** The current rerun should be cited as a bounded top-5 entity-discovery result under synthetic conditions, not as a general multi-hop reasoning win or a top-1 ranking claim. Named-attribute discovery now works in the refreshed track, but the honest scope is still limited.
+
 ---
 
 ## The Question We're Actually Asking

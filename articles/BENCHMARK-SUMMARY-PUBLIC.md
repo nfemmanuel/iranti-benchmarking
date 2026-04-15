@@ -4,6 +4,9 @@
 **Version under test:** 0.2.16
 **Date:** 2026-03-22
 
+
+> **Current-version note (2026-03-26):** This article is the historical `0.2.16` public summary. Later reruns refreshed the current-version story for `B1`, `B2`, `B3`, `B4`, `B5`, `B8`, `B9`, `B11`, `B12`, and `B13`. Read the strongest claims here as historical unless they are repeated in the current rerun docs. The main narrowing points are: `B3` close-gap conflicts now read as conservative escalation rather than a positive LLM-arbitration story; `B4` is a bounded top-5 discovery result, not a general multi-hop reasoning claim; `B5` ambiguous cross-source updates now read as escalation-prone rather than clean incumbent-preserving rejection; `B8` exact addressed retrieval and provenance still stand but search discovery is vector-led and over-broad; `B11` is positive for `observe` and still negative for natural `attend`; `B12` is positive for durability and explicit recovery, not general automatic interrupted-session recovery.
+
 ---
 
 ## What We Did

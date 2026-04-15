@@ -7,6 +7,10 @@
 **LLM provider:** openai (LLM_PROVIDER=openai; real provider used from v3.0 onward)
 **Total tracks:** B1–B13
 
+> Historical record notice: this document is the closed `0.2.16` / v6.0 scientific summary.
+> Later reruns on `2026-03-26` refreshed current-version evidence for `B1`, `B2`, `B3`, `B4`, `B5`, `B6`, `B8`, `B9`, `B11`, `B12`, and `B13`.
+> Do not read every headline below as a current-version claim without checking the newer rerun artifacts and resume-program docs.
+
 ---
 
 ## Section 1: Program Overview

@@ -14,6 +14,9 @@ This is the session recovery problem. And it matters more than it might seem, be
 
 We ran a benchmark to test whether Iranti solves this problem. Here's what we found.
 
+
+> **Current-version note (2026-03-26):** The refreshed rerun keeps the durability and explicit-query recovery story positive, but automatic interrupted-session recovery remains weak. Do not read this article as proof that Iranti generally restores task state on its own after interruption. The current claim is narrower: durability is strong, explicit recovery works, automatic recovery is partial at best.
+
 ---
 
 ## The Setup

@@ -2,9 +2,13 @@
 
 **Family:** Persistent memory / session continuity
 **Inspired by:** MemGPT session paging; agent checkpoint/restart literature; LLM statelessness problem
-**Executed:** 2026-03-21
-**Iranti version:** 0.2.16
-**Status:** Complete — first execution
+**First executed:** 2026-03-21 (v0.2.16)
+**Rerun:** 2026-03-22 (v0.2.21)
+**Iranti version (latest):** 0.2.21
+**Status:** Complete - durability and explicit recovery are positive; automatic interrupted-session recovery remains weak
+
+
+> **Program context:** For the canonical current benchmark state, start with [`articles/CURRENT-BENCHMARK-STATE.md`](../../articles/CURRENT-BENCHMARK-STATE.md) and [`papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md`](../../papers/CURRENT-BENCHMARK-STATE-TECHNICAL.md). This family document should be read as one track within that broader current-state record.
 
 ---
 
@@ -12,7 +16,7 @@
 
 A core claim of persistent memory systems is that work survives session interruption. LLMs are stateless by construction: each new session starts with a blank context window. Any state accumulated in a prior session — decisions made, facts discovered, next steps identified — is lost unless explicitly stored externally.
 
-This benchmark tests whether Iranti can bridge that gap for a partially completed research task. It is distinct from B2 (cross-session persistence), which tests that completed writes survive across sessions. B12 tests:
+This benchmark tests whether Iranti can bridge that gap for a partially completed research task. It is distinct from B2 (cross-session persistence), which tests that completed writes survive across sessions. B12 should be read as a split result: durability and explicit lookup are strong, while automatic recovery surfaces remain weak. B12 tests:
 
 1. **Partial write survival**: Do facts written progressively mid-task all survive a session break?
 2. **Passive recovery** (iranti_handshake): Does the handshake mechanism surface task-relevant state automatically?
@@ -112,6 +116,8 @@ With no prior context and no memory store, score is definitionally 0/8.
 
 ## 5. Results Summary
 
+### v0.2.16 (first execution, 2026-03-21)
+
 | Recovery method | Score | Recovery rate |
 |----------------|-------|---------------|
 | Baseline (no Iranti) | 0/8 | 0% |
@@ -121,24 +127,45 @@ With no prior context and no memory store, score is definitionally 0/8.
 
 **Differential (best Iranti path vs baseline): +8/8**
 
+### v0.2.21 rerun (2026-03-22)
+
+Entity: `project/b12_recovery_v0221`. Entity: 8 facts, Batch A conf=95, Batch B conf=90.
+
+| Recovery method | Score | Recovery rate | Notes |
+|----------------|-------|---------------|-------|
+| Baseline (no Iranti) | 0/8 | 0% | Definitional |
+| iranti_query (oracle) | 8/8 | 100% | Full recovery, both confidence tiers |
+| iranti_observe (with entity hint) | 3/8 (conservative) / 5/8 (inclusive) | 38–63% | Batch A (conf=95): all 5 found; Batch B (conf=90): 0/3; alreadyPresent=2 |
+| iranti_observe (cold, no hint) | 0/8 | 0% | entity_extraction_parse_error |
+| iranti_attend (with entity hint) | PARSE ERROR | — | classification_parse_failed_default_false |
+
+**Differential (best Iranti path vs baseline): +8/8 (iranti_query)**
+
+iranti_handshake was not retested in the v0.2.21 rerun (the v0.2.16 result of 0/8 is stable; the protocol for v0.2.21 tests focused on the three remaining pathways).
+
+Full results: `results/raw/B12-session-recovery-v0221-session-a.md`, `results/raw/B12-session-recovery-v0221-session-b.md`
+
 ---
 
 ## 6. Key Findings
 
-### Finding 1: Durability is complete
-All 8 facts — including the mid-task progress batch written after a natural pause — survived and were retrievable. There is no partial-write loss. iranti_write is durable regardless of session state.
+### Finding 1: Durability is complete (replicated at v0.2.21)
+All 8 facts — including the mid-task progress batch written after a natural pause — survived and were retrievable in both v0.2.16 and v0.2.21. There is no partial-write loss. iranti_write is durable regardless of session state.
 
-### Finding 2: iranti_handshake does not surface task-entity facts
-The handshake returned only agent-internal bookkeeping (attendant_state, stats). `sessionRecovery` and `sessionCheckpoint` were null. The handshake mechanism is not designed for entity-scoped recovery. Agents that rely on handshake alone for session recovery will receive 0/8 on task-entity state.
+### Finding 2: iranti_handshake does not surface task-entity facts (v0.2.16)
+The handshake returned only agent-internal bookkeeping (attendant_state, stats). `sessionRecovery` and `sessionCheckpoint` were null. The handshake mechanism is not a general task-entity recovery surface. Agents that rely on handshake alone for interrupted-task recovery will receive 0/8 on task-entity state.
 
-### Finding 3: iranti_observe recovers setup facts but not progress facts
-With a correct entity hint, observe returns 5/8 — the 5 setup facts from Batch A. The 3 Batch B facts (preliminary_finding, next_step, open_question) are not returned despite maxFacts=8 covering all 8 facts. The ranking mechanism appears to deprioritize lower-confidence facts (90 vs 95 for Batch A). This is the most consequential limitation: the missing facts are exactly the ones needed to resume work.
+### Finding 3: iranti_observe recovers setup facts but not progress facts (replicated at v0.2.21)
+With a correct entity hint, observe returns 5 of 8 facts total (3 new + 2 already present). The 3 Batch B facts (preliminary_finding, next_step, open_question; conf=90) are not returned in the response body despite maxFacts=8. The ranking mechanism deprioritizes lower-confidence facts (90 vs 95 for Batch A). This is the most consequential limitation: the missing facts are exactly the ones needed to resume work. The confidence-tier split is now confirmed across two versions.
 
-### Finding 4: Entity auto-detection does not work
-`detectedCandidates: 0` in the observe debug output. The entity ID was not auto-detected from the context string. This replicates B11's finding. Hint-free recovery from raw context is not functional.
+### Finding 4: Entity auto-detection does not work (replicated at v0.2.21)
+`detectedCandidates: 0` and `entity_extraction_parse_error` in the observe debug output at v0.2.21. The entity ID is not auto-detected from context string; the extraction call produces invalid JSON. This replicates B11 and the v0.2.16 B12 finding. Hint-free recovery from raw context is not functional and has not been fixed through v0.2.21.
 
-### Finding 5: Explicit iranti_query achieves 100% recovery
-Any fact can be recovered losslessly if the agent knows the entity ID and key name. This is the high-water mark for Iranti's recovery capability — but it imposes a constraint on the recovering agent.
+### Finding 5: Explicit iranti_query achieves 100% recovery (replicated at v0.2.21)
+Any fact can be recovered losslessly if the agent knows the entity ID and key name. Applies to both confidence tiers (Batch A conf=95 and Batch B conf=90). This is the high-water mark for Iranti's recovery capability.
+
+### Finding 6 (new at v0.2.21): iranti_attend classifier parse error
+The attend classifier returned `classification_parse_failed_default_false` — the same failure pattern observed in B11 v0.2.21. The LLM-based injection classifier is not producing valid JSON responses. This is consistent across B11 and B12 at v0.2.21.
 
 ---
 
@@ -170,4 +197,38 @@ B12 is more operationally realistic than B11: it tests the specific case where a
 3. **No true session break**: The "session break" is simulated — no actual process restart occurred. Iranti's behavior under a true cold-start (e.g., server restart) is not tested here.
 4. **Entity hint was supplied manually**: Auto-detection failure is real and documented, but the hint itself was human-specified, not agent-inferred. A recovering agent must somehow determine the entity ID — this is the unsolved coordination problem.
 5. **iranti_query recovery assumes key knowledge**: The 8/8 result is conditional on knowing all 8 key names. An agent without this schema knowledge would score lower.
-6. **One Iranti version (0.2.16)**: Recovery behavior, particularly observe ranking and handshake scope, may change across versions.
+6. **Two Iranti versions tested (0.2.16, 0.2.21)**: Core findings have been replicated across both versions. The confidence-tier split in observe ranking and entity auto-detection failure are consistent. iranti_attend classifier failure is new at v0.2.21 and has not been retested against v0.2.16 in this protocol.
+
+---
+
+## 10. v0.2.35 Rerun Results (2026-03-26)
+
+**Runtime under test:** clean disposable installed-product instance `bench_v0235` reporting `0.2.35`  
+**Raw report:** `results/raw/B12-session-recovery-v0235.md`
+
+### Score Summary
+
+| Recovery method | Score | Notes |
+|---|---:|---|
+| `iranti_query` (oracle) | 8/8 | Full recovery remains lossless |
+| `iranti_handshake` | 0 | `workingMemory=[]`, `sessionCheckpoint=null` |
+| `iranti_observe` with entity hint | 5/8 | Same top-five setup facts surfaced |
+| `iranti_observe` cold | 0/8 | Detector still fails without a hint |
+| `iranti_attend` with entity hint | 0/8 | `classification_parse_failed_default_false` |
+
+### Current Interpretation
+
+The v0.2.35 rerun keeps the core B12 shape intact:
+- explicit query remains the high-water-mark recovery path
+- handshake is still not a general task-state recovery surface without checkpoint state
+- observe still recovers setup facts but not the lower-confidence progress facts
+- attend remains unusable as an autonomous recovery path
+
+### Claim Discipline
+
+This family should continue to be cited as:
+- a **positive durability / explicit-recovery** result
+- a **partial hint-assisted recovery** result
+- a **negative handshake/attend** result
+
+It should **not** be cited as evidence that Iranti performs general automatic interrupted-session recovery without explicit entity/key or checkpoint help.

@@ -5,6 +5,9 @@
 **Date:** March 2026
 **Audience:** Technical generalists — developers, AI researchers, curious readers
 
+
+> **Current-version note (2026-03-26):** The refreshed rerun confirms the strong part of this track: exact addressed retrieval and provenance across isolated client processes. The discovery/search surface should now be described more narrowly. It is vector-led and over-broad, not a clean general-purpose coordination discovery primitive.
+
 ---
 
 ## The Problem

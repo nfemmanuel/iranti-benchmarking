@@ -15,6 +15,9 @@
 >
 > Details follow at the end of this article.
 
+
+> **Current-version note (2026-03-26):** The refreshed rerun keeps the deterministic update story positive but changes the ambiguous cross-source interpretation. Do not use this article's older "established source bias" / timeout framing as the current headline. The current rerun supports deterministic updates plus conservative escalation in the ambiguous cross-source zone.
+
 ---
 
 ## The Question We're Actually Asking
